@@ -18,7 +18,7 @@ Status
 =======
 prototype
 
-Can run one 'Addition' component.
+Can run 'Addition' components.
 
 License
 =======
