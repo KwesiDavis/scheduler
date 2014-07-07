@@ -15,11 +15,11 @@ Running
    ```
 2. Debug Scheduler with desired log-level ('INFO', 'WARN', 'DEBUG')
    ```
-   python protoflo.py -log INFO
+   python scheduler.py -log INFO
    ```
 3. Debug Scheduler and run the would-be parallel processes in serial
    ```
-   python protoflo.py -log DEBUG -sync
+   python scheduler.py -log DEBUG -sync
    ```
 
 Status
