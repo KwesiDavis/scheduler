@@ -1,0 +1,38 @@
+{
+    "processes": {
+        "noop1"  : { "component": "_NoOp_" },
+        "noop2"  : { "component": "_NoOp_" },
+        "noop3"  : { "component": "NoOp" }
+    },
+    "inports": {}, 
+    "connections": [
+        {
+          "data": 1,
+          "tgt": {
+              "process": "noop1",
+              "port": "in"
+           }
+        },
+        {
+          "src": {
+            "process": "noop1", 
+            "port": "out"
+          }, 
+          "tgt": {
+            "process": "noop2",
+            "port": "in"
+           }
+        },
+        {
+          "src": {
+            "process": "noop2", 
+            "port": "out"
+          }, 
+          "tgt": {
+            "process": "noop3",
+            "port": "in"
+           }
+        }
+    ],
+    "outports": {}
+}

@@ -2,26 +2,10 @@
     "processes": {
         "add1"  : { "component": "Add" },
         "add2"  : { "component": "Add" },
-        "add3"  : { "component": "Add" }
+        "add3"  : { "component": "Add" },
+        "info"  : { "component": "Info" }
     },
-    "inports": {
-        "a": {
-          "process": "add1",
-          "port": "a"
-        },
-        "b": {
-          "process": "add1",
-          "port": "b"
-        },
-        "c": {
-          "process": "add2",
-          "port": "a"
-        },
-        "d": {
-          "process": "add2",
-          "port": "b"
-        } 
-    }, 
+    "inports": {}, 
     "connections": [
         {
           "data": 1,
@@ -70,12 +54,17 @@
             "process": "add3",
             "port": "b"
            }
+        },
+        {
+          "src": {
+            "process": "add3", 
+            "port": "sum"
+          }, 
+          "tgt": {
+            "process": "info",
+            "port": "in"
+           }
         }
     ],
-    "outports": {
-        "out": {
-          "process": "add3", 
-          "port": "sum"
-        }
-    }
+    "outports": {}
 }

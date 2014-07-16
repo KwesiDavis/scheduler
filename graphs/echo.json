@@ -1,0 +1,20 @@
+{
+    "processes": {
+        "stdin"   : { "component": "_StdIn_" },
+        "stdout"  : { "component": "_StdOut_" }
+    },
+    "inports": {}, 
+    "connections": [
+        {
+          "src": {
+            "process": "stdin", 
+            "port": "out"
+          }, 
+          "tgt": {
+            "process": "stdout",
+            "port": "in"
+           }
+        }
+    ],
+    "outports": {}
+}
