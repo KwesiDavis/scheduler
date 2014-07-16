@@ -5,14 +5,6 @@ import scheduler.util.plumber
 def isThreaded(componentName):
     return componentName.startswith('_') and componentName.endswith('_') 
 
-def closeConnections(core, inports, outports):
-    # Close all connections
-    for ports in [inports, outports, core.get('ports', {})]:
-        for portName, smartPipe in ports.items():
-            logging.debug('CONN: [{pid}] On exit, process "{proc}" closed "{proc}.{port}".'.format(pid=os.getpid(), proc=core['name'], port=portName))        
-            conn = scheduler.util.plumber.getConnection(smartPipe)
-            conn.close()
-
 def internalEvent(core, eventType):
     eventSender = core['name']
     try:
@@ -41,10 +33,16 @@ def internalEvent(core, eventType):
         pass
     
 def base(core, inports, outports, fxn, config={}):
+    FIRST_CONN = 0
+    setCount = {}
+    for portName in outports.keys():
+        setCount[portName] = [ 0, len(outports[portName]) ]
+    
     # Close un-used end of Pipe connection
     for ports in [inports, outports, core.get('ports', {})]:
-        for portName, leakyPipe in ports.items():
-            scheduler.util.plumber.plugLeak(leakyPipe, core['name'])
+        for portName, leakyPipeList in ports.items():
+            for leakyPipe in leakyPipeList:
+                scheduler.util.plumber.plugLeak(leakyPipe, core['name'])
             
     # Log that this component has started
     logging.debug('BGIN: {name}'.format(name=core['name']))
@@ -53,15 +51,19 @@ def base(core, inports, outports, fxn, config={}):
     def checkInputs():
         if received == set(inports.keys()):
             internalEvent(core, 'ReceivedAllInputs')
-    def getDataFxn(inportName):
+    def getDataAtFxn(i, inportName, poll=False):
         try:
-            leakyPipe = inports[inportName]
+            leakyPipe = inports[inportName][i]
         except KeyError, e:
             # Trying to get data to an unconnected in-port
             logging.info('Data requested from an unconnected port: {proc}.{port}'.format(proc=core['name'],
                                                                                          port=inportName))
             raise e
         conn = scheduler.util.plumber.getConnection(leakyPipe)
+        if poll:
+            if not conn.poll():
+                raise IOError('In-port {proc}.{port} not ready for recv()'.format(proc=core['name'],
+                                                                                  port=inportName))
         data = conn.recv()
         logging.debug('RECV: {proc}.{port} = {data}'.format(data=str(data),
                                                             proc=core['name'],
@@ -69,12 +71,23 @@ def base(core, inports, outports, fxn, config={}):
         received.add(inportName)
         checkInputs()
         return data
+    def getDataFxn(inportName):
+        connCount = len(inports[inportName])
+        if connCount > 1:
+            logging.info('In-port {proc}.{port} has {count} connections, but only one requested.'.format(proc=core['name'],
+                                                                                                         port=inportName,
+                                                                                                         count=connCount))
+        return getDataAtFxn(FIRST_CONN, inportName)
     def setDataFxn(outportName, data):
         logging.debug('SEND: {proc}.{port} = {data}'.format(data=str(data),
                                                             proc=core['name'],
                                                             port=outportName))
         try:
-            leakyPipe = outports[outportName]
+            # Load ballence across out connection (per port) 
+            numSetCalls, numConnections = setCount[outportName]
+            roundRobinIndex = numSetCalls % numConnections  
+            leakyPipe = outports[outportName][roundRobinIndex]
+            setCount[outportName][0] += 1
         except KeyError:
             # Trying to send data to an unconnected out-port
             logging.info('Data ({data}) sent to unconnected port: {proc}.{port}'.format(data=str(data),
@@ -85,6 +98,7 @@ def base(core, inports, outports, fxn, config={}):
         conn.send(data)
     def getConfigFxn():
         return config    
+    core['getDataAt'] = getDataAtFxn
     core['getData']   = getDataFxn
     core['setData']   = setDataFxn
     core['getConfig'] = getConfigFxn
@@ -97,19 +111,21 @@ def base(core, inports, outports, fxn, config={}):
     logging.debug('Waiting on {name}\'s in-ports ({inports}) to close...'.format(name=core['name'], inports=inports.keys()))
     while not isAllInputsClosed:
         status = []
-        for portName in inports.keys():
-            try:
-                core['getData'](portName)
-                status.append(False)
-            except EOFError:
-                status.append(True)
+        for portName, leakyPipeList in inports.items():
+            for i, leakyPipe in enumerate(leakyPipeList):
+                try:
+                    core['getDataAt'](i, portName)
+                    status.append(False)
+                except EOFError:
+                    status.append(True)
         isAllInputsClosed = all(status)
     logging.debug('Process {name} is shutting down.'.format(name=core['name']))
     # Close all connections
     for ports in [inports, outports, core.get('ports', {})]:
-        for portName, smartPipe in ports.items():
-            logging.debug('CONN: [{pid}] On exit, process "{proc}" closed "{proc}.{port}".'.format(pid=os.getpid(), proc=core['name'], port=portName))        
-            conn = scheduler.util.plumber.getConnection(smartPipe)
-            conn.close()
+        for portName, leakyPipeList in ports.items():
+            for leakyPipe in leakyPipeList:
+                logging.debug('CONN: [{pid}] On exit, process "{proc}" closed "{proc}.{port}".'.format(pid=os.getpid(), proc=core['name'], port=portName))        
+                conn = scheduler.util.plumber.getConnection(leakyPipe)
+                conn.close()
     # Log that this component has finished       
     logging.debug('END : {name}'.format(name=core['name']))

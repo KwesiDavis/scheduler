@@ -48,9 +48,9 @@ def graph2network(graph, eventQueue=None):
                                                                                 tgtProc=tgtProcessName,
                                                                                 tgtPort=tgtPortName))
         srcPortNameStr = str(srcPortName) # unicode-to-str
-        interfaces.setdefault(srcProcessName, {}).setdefault('outports', {})[srcPortNameStr] = pipeSrc
+        interfaces.setdefault(srcProcessName, {}).setdefault('outports', {}).setdefault(srcPortNameStr, []).append(pipeSrc)
         tgtPortNameStr = str(tgtPortName) # unicode-to-str
-        interfaces.setdefault(tgtProcessName, {}).setdefault('inports',  {})[tgtPortNameStr] = pipeTgt
+        interfaces.setdefault(tgtProcessName, {}).setdefault('inports',  {}).setdefault(tgtPortNameStr, []).append(pipeTgt)
     # parse processes
     processes = []
     blockCfg = { 'ReceivedAllInputs' : True }
