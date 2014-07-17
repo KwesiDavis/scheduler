@@ -7,36 +7,39 @@ def isThreaded(componentName):
 
 def internalEvent(core, eventType):
     eventSender = core['name']
+    # Construct an event (or notification message).
+    event  = {'sender' : eventSender,
+              'type'   : eventType}
+    # Does this event have framework-blocking powers?
     try:
-        # Get the port dedicated to sending internal events.
-        connEvents = core['getData']('events')
-        # Construct an event (or notification message).
-        event  = {'sender' : eventSender,
-                  'type'   : eventType}
-        # Does this event have framework-blocking powers?
-        try:
-            isEventBlocking = core['block_cfg'][eventType]
-        # Blocking on this particular event is not defined so don't block.
-        except KeyError:
-            isEventBlocking = False
-        # If blocking enabled attach an object to the out going message the
-        # allows a recipient to unblock this process. 
+        isEventBlocking = core['block_cfg'][eventType]
+    # Blocking on this particular event is not defined so don't block.
+    except KeyError:
+        isEventBlocking = False
+    # If blocking enabled attach an object to the out going message the
+    # allows a recipient to unblock this process. 
+    try:
         if isEventBlocking:
             event['blocker'] = Manager().Event()
-            connEvents.send(event)
+            core['setData']('events')
             event['blocker'].wait()
         # Blocking in not enabled so just send the event.
         else:
-            connEvents.send(event)
-    # Blocking on events is not enabled.
-    except KeyError:
-        pass
+            core['setData']('events', event)
+    except KeyError, e:
+        # Sending events is not enabled.
+        logging.info('%s %s' % (eventSender, str(e)))
+        return
     
 def base(core, inports, outports, fxn, config={}):
     FIRST_CONN = 0
-    setCount = {}
+    state      = {}
+    # round robin support
+    state['set data count'] = {}
     for portName in outports.keys():
-        setCount[portName] = [ 0, len(outports[portName]) ]
+        state['set data count'][portName] = [ 0, len(outports[portName]) ]
+    # event support
+    state['has all inputs'] = False
     
     # Close un-used end of Pipe connection
     for ports in [inports, outports, core.get('ports', {})]:
@@ -49,8 +52,13 @@ def base(core, inports, outports, fxn, config={}):
     # Create helper functions
     received = set([])
     def checkInputs():
-        if received == set(inports.keys()):
+        if not state['has all inputs'] and received == set(inports.keys()):
             internalEvent(core, 'ReceivedAllInputs')
+            state['has all inputs'] = True
+    def lenAtFxn(portName, inport=True):
+        if inport:
+            return len(inports[portName])
+        return len(outports[portName])
     def getDataAtFxn(i, inportName, poll=False):
         try:
             leakyPipe = inports[inportName][i]
@@ -84,10 +92,10 @@ def base(core, inports, outports, fxn, config={}):
                                                             port=outportName))
         try:
             # Load ballence across out connection (per port) 
-            numSetCalls, numConnections = setCount[outportName]
+            numSetCalls, numConnections = state['set data count'][outportName]
             roundRobinIndex = numSetCalls % numConnections  
             leakyPipe = outports[outportName][roundRobinIndex]
-            setCount[outportName][0] += 1
+            state['set data count'][outportName][0] += 1
         except KeyError:
             # Trying to send data to an unconnected out-port
             logging.info('Data ({data}) sent to unconnected port: {proc}.{port}'.format(data=str(data),
@@ -102,13 +110,14 @@ def base(core, inports, outports, fxn, config={}):
     core['getData']   = getDataFxn
     core['setData']   = setDataFxn
     core['getConfig'] = getConfigFxn
+    core['lenAt']     = lenAtFxn
     # Component may have no in-ports so check may succeed
     checkInputs()
     # Run the component logic
     fxn(core)
     # A process "closes" when all its inputs close
     isAllInputsClosed = False
-    logging.debug('Waiting on {name}\'s in-ports ({inports}) to close...'.format(name=core['name'], inports=inports.keys()))
+    logging.debug('WAIT: Waiting on {name}\'s in-ports {inports} to close...'.format(name=core['name'], inports=inports.keys()))
     while not isAllInputsClosed:
         status = []
         for portName, leakyPipeList in inports.items():
@@ -119,7 +128,7 @@ def base(core, inports, outports, fxn, config={}):
                 except EOFError:
                     status.append(True)
         isAllInputsClosed = all(status)
-    logging.debug('Process {name} is shutting down.'.format(name=core['name']))
+    logging.debug('WAIT: Done waiting! Process {name} is shutting down.'.format(name=core['name']))
     # Close all connections
     for ports in [inports, outports, core.get('ports', {})]:
         for portName, leakyPipeList in ports.items():

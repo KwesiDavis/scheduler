@@ -5,7 +5,7 @@ import scheduler.component.test
 import scheduler.util.plumber
 import scheduler.util.iip
 
-def graph2network(graph, eventQueue=None):
+def graph2network(graph):
     '''
     Given a graph and a component library generate a sub-network of Python
     multiprocessing Process objects wired to together with Pipe objects.
@@ -14,7 +14,6 @@ def graph2network(graph, eventQueue=None):
         graph - A graph of data relationships between the ports of components
         library - A dictionary mapping component names to a function object 
                   that represents the component's business logic.
-        eventQueue - A running processes will post internal events to this queue. 
     Returns:
         A tuple of the form: (iips, subProcesses, processInterfaces)     
     '''
@@ -53,7 +52,8 @@ def graph2network(graph, eventQueue=None):
         interfaces.setdefault(tgtProcessName, {}).setdefault('inports',  {}).setdefault(tgtPortNameStr, []).append(pipeTgt)
     # parse processes
     processes = []
-    blockCfg = { 'ReceivedAllInputs' : True }
+    #blockCfg = { 'ReceivedAllInputs' : True }
+    blockCfg = { 'ReceivedAllInputs' : False }
     for processName in graph['processes'].keys():
         try:
             config = graph['processes'][processName]['metadata']['config']
@@ -64,9 +64,8 @@ def graph2network(graph, eventQueue=None):
         interfaces[processName].setdefault('core', {})['name'] = processName
         interfaces[processName].setdefault('inports', {})
         interfaces[processName].setdefault('outports', {})
-        # Every process knows where to log internal events
-        if eventQueue:
-            interfaces[processName]['core'].setdefault('block_cfg', blockCfg)
+        # Every process knows which events have blocking powers
+        interfaces[processName]['core'].setdefault('block_cfg', blockCfg)
         # Generate a process instance from a component name
         logging.debug('PROC: {proc}'.format(proc=processName))
         componentName = graph['processes'][processName]['component']
@@ -114,17 +113,13 @@ def json2graph(path):
     return json.loads(f.read())
 
 def run(path, sync=False):
-    # Create queue to log events
-    eventQueue = None
-    if sync:
-        eventQueue = Queue()
     # Load a graph from disk
     graph = json2graph(path)
     # Extract IIPs that are embedded in the 
     # graph and apply them via a special process
     graph = scheduler.util.iip.addFromGraph(graph)
     # Build a network from the graph
-    network = graph2network(graph, eventQueue=eventQueue)
+    network = graph2network(graph)
     # Run the network
     startNetwork(network)
     # Synchronize two events:

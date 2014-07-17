@@ -104,7 +104,29 @@ def iip(core, inports, outports, config):
             core['setData'](portName, data)
     scheduler.component.base(core, inports, outports, fxn, config=config)
 
+def merge(core, inports, outports):
+    def fxn(core):
+        connIndices = range(core['lenAt']('in'))
+        eof = [False for connIndx in connIndices]
+        while True:
+            for connIndx in connIndices:
+                if not eof[connIndx]:
+                    try:
+                        data = core['getDataAt'](connIndx, 'in', poll=True)
+                    except IOError, e:
+                        continue
+                    except EOFError:
+                        eof[connIndx] = True
+                        continue
+                    core['setData']('out', data)
+            if all(eof):
+                # All upstream connections are closed so stop polling 
+                # for data
+                break
+    scheduler.component.base(core, inports, outports, fxn)
+
 library = { '_IIPs_'   : iip,
+            'Merge'    : merge,
             'Add'      : add,
             '_StdIn_'  : stdin,
             '_StdOut_' : stdout,
