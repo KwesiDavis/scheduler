@@ -125,8 +125,47 @@ def merge(core, inports, outports):
                 break
     scheduler.component.base(core, inports, outports, fxn)
 
+def join(core, inports, outports):
+    def fxn(core):
+        connIndices = range(core['lenAt']('in'))
+        isEndOfFile = False
+        while not isEndOfFile:
+            group = []            
+            for connIndx in connIndices:
+                try:
+                    data = core['getDataAt'](connIndx, 'in', poll=False)
+                    group.append(data)
+                except EOFError:
+                    # If we get an EOF from any input we're done.
+                    isEndOfFile = True
+                    break
+            if not isEndOfFile:
+                core['setData']('out', tuple(group))
+    scheduler.component.base(core, inports, outports, fxn)
+
+def unblock(core, inports, outports):
+    def fxn(core):
+        while True:
+            # get input
+            try:
+                data = core['getData']('in')
+            except EOFError:
+                break
+            # unblock Event contained in tuple            
+            for elem in data:
+                try:
+                    elem['blocker'].set() # unblock this Event obj
+                except KeyError:
+                    # dict has not Event blocking object
+                    pass
+                except TypeError:
+                    pass
+    scheduler.component.base(core, inports, outports, fxn)    
+
 library = { '_IIPs_'   : iip,
             'Merge'    : merge,
+            'Join'     : join,
+            'UnBlock'  : unblock,      
             'Add'      : add,
             '_StdIn_'  : stdin,
             '_StdOut_' : stdout,

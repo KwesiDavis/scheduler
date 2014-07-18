@@ -1,0 +1,134 @@
+{
+    "processes": {
+        "add1"    : { "component": "Add" },
+        "add2"    : { "component": "Add" },
+        "add3"    : { "component": "Add" },
+        "info"    : { "component": "Info" },
+        "events"  : { "component": "Merge" },
+        "stdin"   : { "component": "_StdIn_" },
+        "sync"    : { "component": "Join" },
+        "unblock" : { "component": "UnBlock" }
+    },
+    "inports": {}, 
+    "connections": [
+        {
+          "data": 1,
+          "tgt": {
+              "process": "add1",
+              "port": "a"
+           }
+        },
+        {
+          "data": 2,
+          "tgt": {
+              "process": "add1",
+              "port": "b"
+           }
+        },
+        {
+          "data": 3,
+          "tgt": {
+              "process": "add2",
+              "port": "a"
+           }
+        },
+        {
+          "data": 4,
+          "tgt": {
+              "process": "add2",
+              "port": "b"
+           }
+        },
+        {
+          "src": {
+            "process": "add1", 
+            "port": "sum"
+          }, 
+          "tgt": {
+            "process": "add3",
+            "port": "a"
+           }
+        },
+        {
+          "src": {
+            "process": "add2", 
+            "port": "sum"
+          }, 
+          "tgt": {
+            "process": "add3",
+            "port": "b"
+           }
+        },
+        {
+          "src": {
+            "process": "add3", 
+            "port": "sum"
+          }, 
+          "tgt": {
+            "process": "info",
+            "port": "in"
+           }
+        },
+        {
+          "src": {
+            "process": "add1", 
+            "port": "events"
+          }, 
+          "tgt": {
+            "process": "events",
+            "port": "in"
+           }
+        },
+        {
+          "src": {
+            "process": "add2", 
+            "port": "events"
+          }, 
+          "tgt": {
+            "process": "events",
+            "port": "in"
+           }
+        },
+        {
+          "src": {
+            "process": "add3", 
+            "port": "events"
+          }, 
+          "tgt": {
+            "process": "events",
+            "port": "in"
+           }
+        },
+        {
+          "src": {
+            "process": "events", 
+            "port": "out"
+          }, 
+          "tgt": {
+            "process": "sync",
+            "port": "in"
+           }
+        },
+        {
+          "src": {
+            "process": "stdin", 
+            "port": "out"
+          }, 
+          "tgt": {
+            "process": "sync",
+            "port": "in"
+           }
+        },
+        {
+          "src": {
+            "process": "sync", 
+            "port": "out"
+          }, 
+          "tgt": {
+            "process": "unblock",
+            "port": "in"
+           }
+        }
+    ],
+    "outports": {}
+}

@@ -1,0 +1,88 @@
+{
+    "processes": {
+        "noop1"  : { "component": "NoOp" },
+        "noop2"  : { "component": "NoOp" },
+        "add1"   : { "component": "Add" },
+        "stdout" : { "component": "_StdOut_" },
+        "merge"  : { "component": "Merge" },
+        "info"   : { "component": "Info" }        
+    },
+    "inports": {}, 
+    "connections": [
+        {
+          "data": 1,
+          "tgt": {
+              "process": "noop1",
+              "port": "in"
+           }
+        },
+        {
+          "data": 2,
+          "tgt": {
+              "process": "noop2",
+              "port": "in"
+           }
+        },
+        {
+          "src": {
+            "process": "noop1", 
+            "port": "out"
+          }, 
+          "tgt": {
+            "process": "add1",
+            "port": "a"
+           }
+        },
+        {
+          "src": {
+            "process": "noop2", 
+            "port": "out"
+          }, 
+          "tgt": {
+            "process": "add1",
+            "port": "b"
+           }
+        },
+        {
+          "src": {
+            "process": "add1", 
+            "port": "sum"
+          }, 
+          "tgt": {
+            "process": "stdout",
+            "port": "in"
+           }
+        },
+        {
+          "src": {
+            "process": "noop1", 
+            "port": "events"
+          }, 
+          "tgt": {
+            "process": "merge",
+            "port": "in"
+           }
+        },
+        {
+          "src": {
+            "process": "noop2", 
+            "port": "events"
+          }, 
+          "tgt": {
+            "process": "merge",
+            "port": "in"
+           }
+        },
+        {
+          "src": {
+            "process": "merge",
+            "port": "out"
+          }, 
+          "tgt": {
+            "process": "info",
+            "port": "in"
+           }
+        }
+    ],
+    "outports": {}
+}

@@ -21,7 +21,7 @@ def internalEvent(core, eventType):
     try:
         if isEventBlocking:
             event['blocker'] = Manager().Event()
-            core['setData']('events')
+            core['setData']('events', event)
             event['blocker'].wait()
         # Blocking in not enabled so just send the event.
         else:

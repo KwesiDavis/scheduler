@@ -52,9 +52,12 @@ def graph2network(graph):
         interfaces.setdefault(tgtProcessName, {}).setdefault('inports',  {}).setdefault(tgtPortNameStr, []).append(pipeTgt)
     # parse processes
     processes = []
-    #blockCfg = { 'ReceivedAllInputs' : True }
-    blockCfg = { 'ReceivedAllInputs' : False }
     for processName in graph['processes'].keys():
+        # Debug!!!
+        if processName in ['add1', 'add2', 'add3']:
+            blockCfg = { 'ReceivedAllInputs' : True }
+        else:
+            blockCfg = { 'ReceivedAllInputs' : False }        
         try:
             config = graph['processes'][processName]['metadata']['config']
             interfaces[processName].setdefault('config', config)

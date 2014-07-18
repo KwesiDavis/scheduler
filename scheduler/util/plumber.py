@@ -180,5 +180,6 @@ def start(workers, leakyPipes):
     for worker in sorted(workers, cmp=compareWorkers):
         worker.start()
     # Handle un-used file descriptors held by the parent process.
+    processName = '<none>'
     for leakyPipe, _ in leakyPipes:
-        plugLeak(leakyPipe, None, main=True)
+        plugLeak(leakyPipe, processName, main=True)
