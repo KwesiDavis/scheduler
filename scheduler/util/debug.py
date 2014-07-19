@@ -5,18 +5,22 @@ Synchronize user input with the start of a process
 import scheduler.util.editor
 
 def add(graph):
+    # create empty graph to contain edits
     graphEdits = {}
-    
-    eventsPortName   = 'events'
-    mergeProcessName = '*merge*'
-    mergeInPortName  = 'in'
+    # add processes    
+    scheduler.util.editor.process(graphEdits, '*events*' , 'Merge')
+    scheduler.util.editor.process(graphEdits, '*stdin*'  , '_StdIn_')
+    scheduler.util.editor.process(graphEdits, '*sync*'   , 'Join')    
+    scheduler.util.editor.process(graphEdits, '*unblock*', 'UnBlock')    
+    # add connections
     for processName in graph['processes']:
-        # Merge all process events
-        conn = scheduler.util.editor.connection(graphEdits, (processName, 'events'), '*merge*')
-        connections.append( conn )
-    connections.append( scheduler.util.editor.connection(graphEdits, '*events*', '*sync*') )
-    connections.append( scheduler.util.editor.connection(graphEdits, '*stdin*' , '*sync*') )
-    connections.append( scheduler.util.editor.connection(graphEdits, '*sync*'  , '*unblock*') )
-
-    graph.update(graphEdits) 
-    return graph
+        # configure all processes so that they block
+        blockCfg = { 'blocking' : { 'ReceivedAllInputs' : True } }
+        scheduler.util.editor.setConfig(graph, processName, blockCfg)
+        # send all process a Merge
+        scheduler.util.editor.connection(graphEdits, (processName, 'events'), '*events*')
+    scheduler.util.editor.connection(graphEdits, '*events*', '*sync*')
+    scheduler.util.editor.connection(graphEdits, '*stdin*' , '*sync*')
+    scheduler.util.editor.connection(graphEdits, '*sync*'  , '*unblock*')
+    # add edits to given graph
+    return scheduler.util.editor.combine(graph, graphEdits)

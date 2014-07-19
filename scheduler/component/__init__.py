@@ -5,33 +5,36 @@ import scheduler.util.plumber
 def isThreaded(componentName):
     return componentName.startswith('_') and componentName.endswith('_') 
 
+def isFramework(processName):
+    return processName.startswith('*') and processName.endswith('*') 
+
 def internalEvent(core, eventType):
     eventSender = core['name']
     # Construct an event (or notification message).
     event  = {'sender' : eventSender,
               'type'   : eventType}
     # Does this event have framework-blocking powers?
+    config = core['getConfig']()
+    isEventBlocking = False
     try:
-        isEventBlocking = core['block_cfg'][eventType]
-    # Blocking on this particular event is not defined so don't block.
+        isEventBlocking = config['blocking'][eventType]
+    except TypeError:
+        # No config data for this process
+        pass
     except KeyError:
-        isEventBlocking = False
-    # If blocking enabled attach an object to the out going message the
-    # allows a recipient to unblock this process. 
-    try:
-        if isEventBlocking:
-            event['blocker'] = Manager().Event()
-            core['setData']('events', event)
-            event['blocker'].wait()
-        # Blocking in not enabled so just send the event.
-        else:
-            core['setData']('events', event)
-    except KeyError, e:
-        # Sending events is not enabled.
-        logging.info('%s %s' % (eventSender, str(e)))
-        return
+        # No blocking info in this config data
+        pass
+    # If blocking enabled for the given event type attach an object to the out 
+    # going message that allows a recipient to unblock this process. 
+    if isEventBlocking:
+        event['blocker'] = Manager().Event()
+        core['setData']('events', event)
+        event['blocker'].wait()
+    # Blocking in not enabled so just send the event.
+    else:
+        core['setData']('events', event)
     
-def base(core, inports, outports, fxn, config={}):
+def base(core, inports, outports, fxn):
     FIRST_CONN = 0
     state      = {}
     # round robin support
@@ -105,7 +108,7 @@ def base(core, inports, outports, fxn, config={}):
         conn = scheduler.util.plumber.getConnection(leakyPipe)
         conn.send(data)
     def getConfigFxn():
-        return config    
+        return core['metadata'].get('config', None)
     core['getDataAt'] = getDataAtFxn
     core['getData']   = getDataFxn
     core['setData']   = setDataFxn

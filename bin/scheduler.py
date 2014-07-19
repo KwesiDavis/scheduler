@@ -12,6 +12,7 @@ if __name__ == '__main__':
     parser.add_argument('-loglevel', type=str, help='Set the log level', default="WARN")
     parser.add_argument('-logfile', type=str, help='Redirect log entries to a file.', default=None)
     parser.add_argument('-sync', help='Step over processes, one-by-one, with the "Enter" key.', action="store_true")    
+    parser.add_argument('-plot', type=str, help='Write a plot of the graph to a PNG file.', default=None)
     args = parser.parse_args(sys.argv[1:])
     # set the log level
     numeric_level = getattr(logging, args.loglevel.upper(), None)
@@ -19,4 +20,4 @@ if __name__ == '__main__':
         raise ValueError('Invalid log level: %s' % numeric_level)
     logging.basicConfig(level=numeric_level, filename=args.logfile, filemode='w')
     # Run the engine
-    scheduler.engine.run(args.file, sync=args.sync)
+    scheduler.engine.run(args.file, sync=args.sync, plot=args.plot)

@@ -1,11 +1,13 @@
 '''
 Parse initial information packets
 '''
+import scheduler.util.editor
 
 def addFromGraph(graph):
-    iips        = []
-    connections = []
-    deleteIndex = []
+    # create empty graph to contain edits
+    graphEdits     = {}
+    iips           = {}
+    iipProcessName = '*iips*' 
     for i, connection in enumerate( graph['connections'] ):
         # All IIP connection will have data to send.
         try:
@@ -15,30 +17,31 @@ def addFromGraph(graph):
             continue
         tgtProcessName = connection['tgt']['process']
         tgtPortName    = connection['tgt']['port']
-        # Assume a special IIP process is in the graph; which has out-ports 
-        # named after each IIP's target process and target port. 
-        srcProcessName = '_iips_' 
+        # Our IIP process will have out-ports named after each IIP's 
+        # target process/port.
+        srcProcessName = iipProcessName 
         srcPortName    = '{proc}_{port}'.format(proc=tgtProcessName, port=tgtPortName )
-        # Build configuration data for the special IIP process.
-        iips.append( [data, tgtProcessName, tgtPortName] )
-        # Wire the special IIP process into the graph.
-        connection = { "src": { "process" : srcProcessName, 
-                                "port"    : srcPortName }, 
-                       "tgt": { "process" : tgtProcessName,
-                                "port"    : tgtPortName } }
-        connections.append( connection )
-        deleteIndex.append(i)
-    deleteIndex.reverse()
-    for i in deleteIndex:
-        # Remove this iip-as-connection entry
-        del graph['connections'][i]
-    # Instead of representing IIPs as special connections, we represent them as
-    # a special process wired into the network.
-    if connections:
-        # Create the special IIP process with proper configuration data.
-        process = { "_iips_" : { "component" : "_IIPs_", 
-                                 "metadata"  : { "config" : iips } } }
-        # Update graph with special IIP process
-        graph['connections'].extend(connections)
-        graph['processes'].update(process) 
-    return graph
+        # Wire the IIP process into the graph.
+        scheduler.util.editor.connection(graphEdits, (srcProcessName, srcPortName), (tgtProcessName, tgtPortName))
+        # Build configuration data for the IIP process.
+        # Keep track of the connections that represent IIP data so we can 
+        # delete them later
+        iips[i] = [data, tgtProcessName, tgtPortName]
+    # Instead of representing IIPs as special connections (that have data 
+    # and no source process/port), we represent them as a process with 
+    # configuration data that is wired into the network at the IIPs' target
+    # process/ports.
+    if iips:
+        # Create the special IIP process with proper 
+        # configuration data.
+        iipConfig = {'iips' : iips.values() }
+        scheduler.util.editor.process(graphEdits, iipProcessName, "_IIPs_", config=iipConfig)
+        # Remove IIP-as-connection entries from original graph
+        deleteIndex = iips.keys()
+        deleteIndex.reverse()
+        for i in deleteIndex:
+            del graph['connections'][i]
+        # Update graph with IIP process attached to the 
+        # appropriate processes 
+        retval = scheduler.util.editor.combine(graph, graphEdits)
+    return retval

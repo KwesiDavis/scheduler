@@ -1,9 +1,11 @@
 import json, logging, os
 from multiprocessing import Process, Pipe, Queue
 from threading import Thread
+
 import scheduler.component.test
 import scheduler.util.plumber
 import scheduler.util.iip
+import scheduler.util.debug
 
 def graph2network(graph):
     '''
@@ -53,22 +55,13 @@ def graph2network(graph):
     # parse processes
     processes = []
     for processName in graph['processes'].keys():
-        # Debug!!!
-        if processName in ['add1', 'add2', 'add3']:
-            blockCfg = { 'ReceivedAllInputs' : True }
-        else:
-            blockCfg = { 'ReceivedAllInputs' : False }        
-        try:
-            config = graph['processes'][processName]['metadata']['config']
-            interfaces[processName].setdefault('config', config)
-        except:
-            pass
         # Every process gets a name
         interfaces[processName].setdefault('core', {})['name'] = processName
+        # Every keeps its metadata, if any
+        interfaces[processName]['core']['metadata'] = graph['processes'][processName].get('metadata', {}) 
+                
         interfaces[processName].setdefault('inports', {})
         interfaces[processName].setdefault('outports', {})
-        # Every process knows which events have blocking powers
-        interfaces[processName]['core'].setdefault('block_cfg', blockCfg)
         # Generate a process instance from a component name
         logging.debug('PROC: {proc}'.format(proc=processName))
         componentName = graph['processes'][processName]['component']
@@ -115,20 +108,27 @@ def json2graph(path):
     f = open(path, "r")
     return json.loads(f.read())
 
-def run(path, sync=False):
+def run(path, sync=False, plot=None):
+    import scheduler # Why do I need this?
+    
     # Load a graph from disk
     graph = json2graph(path)
     # Extract IIPs that are embedded in the 
     # graph and apply them via a special process
     graph = scheduler.util.iip.addFromGraph(graph)
+    # Synchronize two events:
+    #  1) a process getting all its inputs
+    #  2) the user hitting 'Enter' the key
+    if sync:
+        graph = scheduler.util.debug.add(graph)
+    # Plot the graph we are about to run
+    if plot:
+        import scheduler.util.plot
+        G = scheduler.util.plot.json2networkx(graph, 'untitled')
+        scheduler.util.plot.networkx2png(G, plot)
     # Build a network from the graph
     network = graph2network(graph)
     # Run the network
     startNetwork(network)
-    # Synchronize two events:
-    #  1) a process getting all its inputs
-    #  2) the user hitting 'Enter' the key
-    #if sync:
-    #    synchronizer(eventQueue, len(graph['processes']))
     # Tear down the network
     stopNetwork(network)

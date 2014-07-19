@@ -77,32 +77,15 @@ def info(core, inports, outports):
             logging.info(str(data))
             core['setData']('out', data)
     scheduler.component.base(core, inports, outports, fxn)
-
-def main(core, inports, outports, config):
-    def fxn(core):
-        config = core['getConfig']()
-        for iip in config:
-            data, processName, portName = iip
-            portName = '{proc}.{port}'.format(proc=processName, port=portName)  
-            core['setData'](portName, data)
-    scheduler.component.base(core, inports, outports, fxn, config=config)
-
-def filter(core, inports, outports, config):
-    def fxn(core):
-        messageType = core['getConfig']()
-        event = core['getData']('in')
-        if event['type'] == messageType:
-             core['setData']('out', event)
-    scheduler.component.base(core, inports, outports, fxn, config=config)
     
-def iip(core, inports, outports, config):
+def iip(core, inports, outports):
     def fxn(core):
         config = core['getConfig']()
-        for iip in config:
+        for iip in config['iips']:
             data, processName, portName = iip
             portName = '{proc}_{port}'.format(proc=processName, port=portName)  
             core['setData'](portName, data)
-    scheduler.component.base(core, inports, outports, fxn, config=config)
+    scheduler.component.base(core, inports, outports, fxn)
 
 def merge(core, inports, outports):
     def fxn(core):
@@ -171,6 +154,4 @@ library = { '_IIPs_'   : iip,
             '_StdOut_' : stdout,
             'Info'     : info,
             'NoOp'     : noop,
-            '_NoOp_'   : noop,
-            '_Main_'   : main,
-            'Main'     : main }
+            '_NoOp_'   : noop }
