@@ -4,6 +4,7 @@ Parse initial information packets
 import scheduler.util.editor
 
 def addFromGraph(graph):
+    retval = graph
     # create empty graph to contain edits
     graphEdits     = {}
     iips           = {}
