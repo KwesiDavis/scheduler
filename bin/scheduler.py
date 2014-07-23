@@ -31,7 +31,7 @@ def setupLogging(levelStr, filename):
 
 def main():
     args = parseArgs()
-    setupLogging(level=args.loglevel, file=args.logfile)
+    setupLogging(args.loglevel, args.logfile)
     # Load a graph from disk
     graph = scheduler.util.editor.json2graph(args.file)
     # Extract IIPs that are embedded in the 
@@ -45,9 +45,10 @@ def main():
     # Plot the graph we are about to run
     pngFilename = args.plot
     if pngFilename:
-        import scheduler.util.plot # slow to import; do only if needed  
-        G = scheduler.util.plot.json2networkx(graph, 'untitled')
-        scheduler.util.plot.networkx2png(G, pngFilename)
+        #import scheduler.util.plot # MAINT: Causes UnboundLocalError?  
+        import scheduler.util.plot as plot # slow to import; do only if needed  
+        G = plot.json2networkx(graph, 'untitled')
+        plot.networkx2png(G, pngFilename)
     # Build a network from the graph
     network = scheduler.network.new(graph)
     # Run the network
