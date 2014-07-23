@@ -1,6 +1,5 @@
 import networkx
 from matplotlib import pyplot as plt
-from matplotlib.cm import gist_rainbow
 import scheduler.component
 
 def connectionInfo( connection ):
@@ -102,7 +101,7 @@ def networkx2png(G, outFile):
     linewidths  = 1.0 if (numNodes < aLotOfNodes) else (1.0/scale * 3.0)
     width       = 1.0 if (numNodes < aLotOfNodes) else (1.0/scale * 3.0)
 
-    networkx.draw(G, pos, node_list=node_list, node_color=node_color, cmap=gist_rainbow,
+    networkx.draw(G, pos, node_list=node_list, node_color=node_color,
                   with_labels=True, labels=labels, font_size=font_size, node_size=node_size,
                   linewidths=linewidths, width=width)
     

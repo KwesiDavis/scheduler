@@ -1,4 +1,4 @@
-import time, logging, os, sys
+import logging, os
 from multiprocessing import Pipe, Process
 from threading import Thread
 
@@ -81,9 +81,6 @@ def pipePair(srcProcessName, srcPortName, isSrcThreaded,
     '''    
     connTgt, connSrc = Pipe()
     isSharingPID     = isSrcThreaded and isTgtThreaded    
-    
-    srcName          ='{proc}.{port}'.format( proc=srcProcessName, port=srcPortName)
-    tgtName          ='{proc}.{port}'.format( proc=tgtProcessName, port=tgtPortName)
     
     pipeParent       = leakyPipe(connSrc, connTgt, srcEnable=isSrcThreaded, tgtEnable=isTgtThreaded, sharing=isSharingPID, leakyPipes=[], srcProcessName=srcProcessName, srcPortName=srcPortName, tgtProcessName=tgtProcessName, tgtPortName=tgtPortName)
     pipeChildSrc     = leakyPipe(connSrc, connTgt, srcEnable=True,          tgtEnable=False,         sharing=isSharingPID, leakyPipes=leaks, srcProcessName=srcProcessName, srcPortName=srcPortName, tgtProcessName=tgtProcessName, tgtPortName=tgtPortName)

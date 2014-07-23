@@ -1,3 +1,18 @@
+import json
+
+def json2graph(path):
+    '''
+    Load the given JSON graph file.
+    
+    Parameters:
+        path - A path to a JSON file.
+    Returns:
+        A dictionary representing a graph of data relationships between the 
+        ports of components.
+    '''
+    f = open(path, "r")
+    return json.loads(f.read())
+
 def setConfig( graph, processName, config ):
     process = graph['processes'][processName]
     process.setdefault('metadata', {}).setdefault('config', {}).update(config)

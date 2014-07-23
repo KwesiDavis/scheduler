@@ -1,13 +1,11 @@
-import json, logging, os
-from multiprocessing import Process, Pipe, Queue
+import logging
+from multiprocessing import Process
 from threading import Thread
 
 import scheduler.component.test
 import scheduler.util.plumber
-import scheduler.util.iip
-import scheduler.util.debug
 
-def graph2network(graph):
+def new(graph):
     '''
     Given a graph and a component library generate a sub-network of Python
     multiprocessing Process objects wired to together with Pipe objects.
@@ -72,7 +70,7 @@ def graph2network(graph):
             processes.append( Process(target=fxn, kwargs=interfaces[processName]) )
     return (processes, leakyPipes)
 
-def startNetwork(network):
+def start(network):
     '''
     Startup the processes in the sub-network.
     
@@ -82,7 +80,7 @@ def startNetwork(network):
     processes, leakyPipes = network
     scheduler.util.plumber.start(processes, leakyPipes)
 
-def stopNetwork(network):
+def stop(network):
     '''
     Shutdown the sub-network of processes.
     
@@ -94,41 +92,3 @@ def stopNetwork(network):
         # Wait of all children to terminate themselves so we can exit the main
         # process without leaving orphaned processes behind.    
         process.join()
-
-def json2graph(path):
-    '''
-    Load the given JSON graph file.
-    
-    Parameters:
-        path - A path to a JSON file.
-    Returns:
-        A dictionary representing a graph of data relationships between the 
-        ports of components.
-    '''
-    f = open(path, "r")
-    return json.loads(f.read())
-
-def run(path, sync=False, plot=None):
-    import scheduler # Why do I need this?
-    
-    # Load a graph from disk
-    graph = json2graph(path)
-    # Extract IIPs that are embedded in the 
-    # graph and apply them via a special process
-    graph = scheduler.util.iip.addFromGraph(graph)
-    # Synchronize two events:
-    #  1) a process getting all its inputs
-    #  2) the user hitting 'Enter' the key
-    if sync:
-        graph = scheduler.util.debug.add(graph)
-    # Plot the graph we are about to run
-    if plot:
-        import scheduler.util.plot
-        G = scheduler.util.plot.json2networkx(graph, 'untitled')
-        scheduler.util.plot.networkx2png(G, plot)
-    # Build a network from the graph
-    network = graph2network(graph)
-    # Run the network
-    startNetwork(network)
-    # Tear down the network
-    stopNetwork(network)

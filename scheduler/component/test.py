@@ -14,10 +14,10 @@ def add(core, inports, outports):
             b - A connection to receive the right addend.
             sum - A connection to send the result of a+b. 
         '''
-        a   = core['getData']('a')
-        b   = core['getData']('b')
-        sum = a+b
-        core['setData']('sum', sum)    
+        a      = core['getData']('a')
+        b      = core['getData']('b')
+        result = a+b
+        core['setData']('sum', result)    
     scheduler.component.base(core, inports, outports, fxn)
 
 def stdin(core, inports, outports):
@@ -96,7 +96,7 @@ def merge(core, inports, outports):
                 if not eof[connIndx]:
                     try:
                         data = core['getDataAt'](connIndx, 'in', poll=True)
-                    except IOError, e:
+                    except IOError:
                         continue
                     except EOFError:
                         eof[connIndx] = True
