@@ -1,7 +1,6 @@
 #!/usr/local/bin/python
 import sys
 sys.path.insert(0, '/usr/pic1/noflo/projects/actionflow/github/scheduler/')
-
 import logging, argparse
 import scheduler.network
 import scheduler.util.editor
@@ -9,10 +8,16 @@ import scheduler.util.iip
 import scheduler.util.debug
 
 def parseArgs():
+    '''
+    Defines command line arguments and parses them.
+
+    Returns:
+        An object with the parsed cmd line values.
+    '''
     # add cmd line options
     parser = argparse.ArgumentParser(prog=sys.argv[0])
     parser.add_argument('-file', type=str, help='Graph file to run.', required=True)
-    parser.add_argument('-loglevel', type=str, help='Set the log level', default="WARN")
+    parser.add_argument('-loglevel', type=str, help='Sets the log level; which is "WARN" by default.', default="WARN")
     parser.add_argument('-logfile', type=str, help='Redirect log entries to a file.', default=None)
     parser.add_argument('-sync', help='Step over processes, one-by-one, with the "Enter" key.', action="store_true")    
     parser.add_argument('-plot', type=str, help='Write a plot of the graph to a PNG file.', default=None)
@@ -21,6 +26,16 @@ def parseArgs():
     return args
 
 def setupLogging(levelStr, filename):
+    '''
+    Given a graph and a component library generate a sub-network of Python
+    multiprocessing Process objects wired to together with Pipe objects.
+    
+    Parameters:
+        levelStr - An alias referring to a logging level ('INFO', 'info', 
+                  'WARN', 'debug', etc.); internally the string is auto 
+                  converted to all capital letters.
+        filename - A path representing the desired location of the log file.
+    '''
     # Convert logging level name to enum value
     attrName = levelStr.upper() # 'INFO', 'WARN', 'DEBUG', etc.
     level    = getattr(logging, attrName, None)
@@ -30,7 +45,12 @@ def setupLogging(levelStr, filename):
     logging.basicConfig(level=level, filename=filename, filemode='w')
 
 def main():
+    '''
+    Run the given network and apply any desired debug options.
+    '''
+    # Parse command-line args
     args = parseArgs()
+    # Initialize logger
     setupLogging(args.loglevel, args.logfile)
     # Load a graph from disk
     graph = scheduler.util.editor.json2graph(args.file)

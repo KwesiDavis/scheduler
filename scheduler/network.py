@@ -1,7 +1,6 @@
 import logging
 from multiprocessing import Process
 from threading import Thread
-
 import scheduler.component.test
 import scheduler.util.plumber
 
@@ -11,11 +10,12 @@ def new(graph):
     multiprocessing Process objects wired to together with Pipe objects.
     
     Parameters:
-        graph - A graph of data relationships between the ports of components
-        library - A dictionary mapping component names to a function object 
-                  that represents the component's business logic.
+        graph - A graph of components connected together by data ports
     Returns:
-        A tuple of the form: (iips, subProcesses, processInterfaces)     
+        A tuple of the form: (processes, leakyPipes)  This tuple represents
+        a network.  The 'processes' object is a complete list of processes 
+        in the network.  The 'leakyPipes' is a list of all the Pipes 
+        created by the parent process.
     '''
     # A mapping of process names to dictionaries. The dict's describe the 
     # in-ports and out-ports of all processes in the network.
@@ -72,23 +72,24 @@ def new(graph):
 
 def start(network):
     '''
-    Startup the processes in the sub-network.
+    Start all the processes in the network.
     
     Parameters:
-        processes - A complete list of processes in the sub-network
+        network - A tuple returned from new() representing a network of 
+                  connected processes.
     '''
     processes, leakyPipes = network
     scheduler.util.plumber.start(processes, leakyPipes)
 
 def stop(network):
     '''
-    Shutdown the sub-network of processes.
+    Block until all network process have terminated themselves. To be called
+    before the main program exits so network processes aren't orphaned.
     
     Parameters:
-        processes - A complete list of processes in the sub-network
+        network - A tuple returned from new() representing a network of 
+                  connected processes.
     '''
     processes, _ = network
     for process in processes:
-        # Wait of all children to terminate themselves so we can exit the main
-        # process without leaving orphaned processes behind.    
         process.join()

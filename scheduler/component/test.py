@@ -145,6 +145,10 @@ def unblock(core, inports, outports):
                     pass
     scheduler.component.base(core, inports, outports, fxn)    
 
+'''
+library - A dictionary mapping component names to a function object 
+          that represents the component's business logic.
+'''
 library = { '_IIPs_'   : iip,
             'Merge'    : merge,
             'Join'     : join,
