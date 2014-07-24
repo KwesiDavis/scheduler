@@ -2,7 +2,16 @@ import networkx
 from matplotlib import pyplot as plt
 import scheduler.component
 
-def connectionInfo( connection ):
+def connectionInfo(connection):
+    '''
+    Builds a convenient graph edge representation from the given JSON 
+    connection data.   
+    
+    Parameters:
+        connection - A connection loaded from a JSON graph file.
+    Returns:
+        Tuple of the form (edge, edgeAttributes)
+    '''
     srcProcessName = connection['src']['process']
     srcPortName    = connection['src']['port']
     tgtProcessName = connection['tgt']['process']
@@ -11,7 +20,17 @@ def connectionInfo( connection ):
     attr           = (('src',  srcPortName), ('tgt', tgtPortName))
     return edge, attr 
 
-def processInfo( process, networkxId=None):
+def processInfo(process, networkxId=None):
+    '''
+    Builds a convenient graph node representation from the given JSON 
+    process data.
+    
+    Parameters:
+        process - A process loaded from a JSON graph file.
+        networkxId - This node's associated index in a NetworkX graph. 
+    Returns:
+        A 'dict' of the form {'component':compName, 'isSubNet':bool, 'process':procName}
+    '''
     # MAINT: Missing processID (unique in sub-graph), processIDPath (unique in graph), 
     #        processName (can be non-unique and is the GUI displayed name)
     name, info = process
@@ -29,9 +48,18 @@ def processInfo( process, networkxId=None):
     return attr
 
 def json2networkx(jsonGraph, name='*main*'):
+    '''
+    Constructs a NetworkX graph from the given JSON file.
+    
+    Parameters:
+        jsonGraph - A graph loaded from a JSON file.
+        name - The of the network (or root node). 
+    Returns:
+        A NetworkX graph object.
+    '''
     # Create an empty graph
     rootId = 0 
-    attr   = { 'component'   : 'Main',
+    attr   = { 'component'  : 'Main',
                'isSubNet'   : True,
                'process'    : name,
                'networkxId' : rootId }
@@ -73,6 +101,12 @@ def json2networkx(jsonGraph, name='*main*'):
 
 def networkx2png(G, outFile):
     """
+    Given a NetworkX graph creates a PNG image and writes it to the given
+    output file path.
+    
+    Parameters:
+        G - A NetworkX graph object.
+        outFile - The file path of the output PNG image. 
     """        
     labels = {}
     node_list  = []

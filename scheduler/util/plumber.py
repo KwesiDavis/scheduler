@@ -3,6 +3,33 @@ from multiprocessing import Pipe, Process
 from threading import Thread
 
 '''
+This module helps handle file descriptor leaks from the use of 
+multiprocessing.Pipe objects. If a Pipe was created in a parent
+process and then a child Process (or Thread) is created, the child
+inherits the parents file descriptors. If a developer, later, wishes
+to close one (or both) ends of the Pipe; which rely on their associated
+file descriptors, the developer must remember to close the file descriptor
+in the parent process as well as the child process.
+
+A detailed discussion of the issue here:
+    http://legacy.python.org/dev/peps/pep-0446/
+
+Repro:
+    from multiprocessing import Pipe, Process
+    
+    def f(srcConn):
+      srcConn.send('Hello!')
+      srcConn.close()
+    
+    srcConn, tgtConn = Pipe()
+    proc =  Process(target=f, args=(srcConn,))
+    proc.start()
+    # srcConn.close() # Solution is an extra close() here.
+    try:
+        print tgtConn.recv()
+        tgtConn.recv() # script will hang here and never EOF
+    except EOFError:
+        print "Source end is closed!" 
 '''
 
 def leakyPipe(src, tgt, srcEnable=False, tgtEnable=False, sharing=False, leakyPipes=[],

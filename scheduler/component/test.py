@@ -25,6 +25,7 @@ def stdin(core, inports, outports):
     Logic the simple 'StdIn' component.
     
     Reads standard in from the main process. Must run as thread of the main-process.
+    http://repolinux.wordpress.com/2012/10/09/non-blocking-read-from-stdin-in-python/
     
     Parameters:
         out - Data on this port came from standard-in. 
@@ -146,7 +147,7 @@ def merge(core, inports, outports):
             for connIndx in connIndices:
                 if not eof[connIndx]:
                     try:
-                        data = core['getDataAt'](connIndx, 'in', poll=True)
+                        data = core['getDataAt'](connIndx, 'in', block=False)
                     except IOError:
                         continue
                     except EOFError:
@@ -180,7 +181,7 @@ def join(core, inports, outports):
             group = []            
             for connIndx in connIndices:
                 try:
-                    data = core['getDataAt'](connIndx, 'in', poll=False)
+                    data = core['getDataAt'](connIndx, 'in', block=True)
                     group.append(data)
                 except EOFError:
                     # If we get an EOF from any input we're done.

@@ -99,23 +99,69 @@ def base(core, inports, outports, fxn):
     # Create helper functions
     received = set([])
     def checkInputs():
+        '''
+        Sends a 'ReceivedAllInputs' when data has arrived at all in-ports and
+        the process is ready execute its logic.
+        '''
+        # MAINT: Multi-input components like Merge are not handled properly.
+        #        We need to account for data arriving from every connection
+        #        not just the first one.   
         if not state['has all inputs'] and received == set(inports.keys()):
             internalEvent(core, 'ReceivedAllInputs')
             state['has all inputs'] = True
     def lenAtFxn(portName, inport=True):
+        '''
+        Gets the number of components connected to a single port.
+        
+        Parameters:
+            portName - The name of the port to query.
+            inport - When 'True', the default, the given port name is assumed
+                     to be an input port, otherwise it's checked as an out-port.
+                     
+        Returns:
+            An 'int' representing the number of connections attached to the 
+            given port.
+        '''
         if inport:
             return len(inports[portName])
         return len(outports[portName])
-    def getDataAtFxn(i, inportName, poll=False):
+    def getDataAtFxn(connIndex, inportName, block=True):
+        '''
+        Get the next information packet that arrives at the given in-port name
+        from the one connection (of many) associated with the given connection
+        index.  If there is no data at the port, this method blocks until data
+        arrives, unless the option poll the port is specified.  In the polling
+        case, it is non-blocking and an exception is thrown when there is no 
+        data.   
+        
+        Parameters:
+            connIndex - An index representing one, of potentially many, 
+                        connections on the given in-port name.
+            inportName - The name of the in-port to get data from. 
+            block - When 'True', the default, this method blocks until data
+                    arrives, on the given in-port name, from the connection 
+                    associated with the given connection index. If 'False',
+                    the method returns immediately with data or it throws an
+                    exception when data has not arrived yet.
+                    
+        Returns:
+            The data sitting on the given in-port name, from the connection 
+            associated with the given connection index.
+            
+        Exceptions:
+            Throws an 'IOError' when blocking is disabled and there is no data
+            available on the given in-port name, from the connection associated
+            with the given connection index.
+        '''
         try:
-            leakyPipe = inports[inportName][i]
+            leakyPipe = inports[inportName][connIndex]
         except KeyError, e:
-            # Trying to get data to an unconnected in-port
+            # Trying to get data from an unconnected in-port
             logging.info('Data requested from an unconnected port: {proc}.{port}'.format(proc=core['name'],
                                                                                          port=inportName))
             raise e
         conn = scheduler.util.plumber.getConnection(leakyPipe)
-        if poll:
+        if not block:
             if not conn.poll():
                 raise IOError('In-port {proc}.{port} not ready for recv()'.format(proc=core['name'],
                                                                                   port=inportName))
@@ -127,6 +173,17 @@ def base(core, inports, outports, fxn):
         checkInputs()
         return data
     def getDataFxn(inportName):
+        '''
+        Assuming the given in-port name has only one connection, get the next 
+        information packet that arrives at that port.  If there is no data at
+        the port, this method blocks until data arrives.   
+        
+        Parameters:
+            inportName - The name of the in-port to receive data from.
+            
+        Returns:
+            The data sitting on the given in-port name.
+        '''
         connCount = len(inports[inportName])
         if connCount > 1:
             logging.info('In-port {proc}.{port} has {count} connections, but only one requested.'.format(proc=core['name'],
@@ -134,11 +191,23 @@ def base(core, inports, outports, fxn):
                                                                                                          count=connCount))
         return getDataAtFxn(FIRST_CONN, inportName)
     def setDataFxn(outportName, data):
+        '''
+        Send the given information packet (or data object) through the given
+        out-port. If there are multiple connections, on that single port, load
+        balance across all connections by sending data to the connection that
+        has waited the longest to receive data. 
+        Note: When there are multiple connections, data is *not* copied and 
+              broadcast across all connected targets.   
+        
+        Parameters:
+            outportName - The name of the out-port to send data to.
+            data - an information packet (or data object)
+        '''
         logging.debug('SEND: {proc}.{port} = {data}'.format(data=str(data),
                                                             proc=core['name'],
                                                             port=outportName))
         try:
-            # Load ballence across out connection (per port) 
+            # Load balance across out connection (per port) 
             numSetCalls, numConnections = state['set data count'][outportName]
             roundRobinIndex = numSetCalls % numConnections  
             leakyPipe = outports[outportName][roundRobinIndex]
@@ -152,7 +221,19 @@ def base(core, inports, outports, fxn):
         conn = scheduler.util.plumber.getConnection(leakyPipe)
         conn.send(data)
     def getConfigFxn():
+        '''
+        Get the configuration data for this process.   
+        
+        Returns:
+            Configuration data in whatever format the process expects.
+            Note: Configuration data can be specified in the graph file as 
+                  metadata on a process.
+            Example:
+                  { processName : { 'component' : componentName,
+                                    'metadata'  : { 'config' : <whatever format> } } }
+        '''
         return core['metadata'].get('config', None)
+    # Make helper functions available to process
     core['getDataAt'] = getDataAtFxn
     core['getData']   = getDataFxn
     core['setData']   = setDataFxn
