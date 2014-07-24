@@ -43,17 +43,14 @@ def connection(graph, src, tgt):
     
     graph.setdefault( 'connections', [] ).append(connection)
 
-def combine(graphA, graphB):
-    retval = {}
-    retval.update(graphA) 
+def apply(graph, edits):
     for key in ['processes', 'inports', 'outports']:
         try:
-            retval.setdefault(key, {}).update(graphB[key])
+            graph.setdefault(key, {}).update(edits[key])
         except KeyError:
             pass
     for key in ['connections']:
         try:
-            retval.setdefault(key, []).extend(graphB[key])
+            graph.setdefault(key, []).extend(edits[key])
         except KeyError:
             pass
-    return retval

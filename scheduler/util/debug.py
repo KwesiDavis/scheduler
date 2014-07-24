@@ -23,4 +23,5 @@ def add(graph):
     scheduler.util.editor.connection(graphEdits, '*stdin*' , '*sync*')
     scheduler.util.editor.connection(graphEdits, '*sync*'  , '*unblock*')
     # add edits to given graph
-    return scheduler.util.editor.combine(graph, graphEdits)
+    scheduler.util.editor.apply(graph, graphEdits)
+    return graph

@@ -4,7 +4,6 @@ Parse initial information packets
 import scheduler.util.editor
 
 def addFromGraph(graph):
-    retval = graph
     # create empty graph to contain edits
     graphEdits     = {}
     iips           = {}
@@ -44,5 +43,5 @@ def addFromGraph(graph):
             del graph['connections'][i]
         # Update graph with IIP process attached to the 
         # appropriate processes 
-        retval = scheduler.util.editor.combine(graph, graphEdits)
-    return retval
+        scheduler.util.editor.apply(graph, graphEdits)
+    return graph
