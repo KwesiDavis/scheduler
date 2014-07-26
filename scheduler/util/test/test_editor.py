@@ -53,7 +53,7 @@ class TestConfigArg(TestProcess):
         self.assertTrue(all(testValues))
         
 def suite():
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestProcess)
+    suite = unittest.TestLoader().loadTestsFromName('scheduler.util.test.test_editor')
     return suite
 
 if __name__ == '__main__':
