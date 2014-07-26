@@ -123,7 +123,7 @@ def networkx2png(G, outFile):
             node_color.append(type2color[G.node[indx]['isSubNet']])
         labels[node] = G.node[indx]['process']
 
-    pos = networkx.graphviz_layout(G, prog='dot')
+    #pos = networkx.graphviz_layout(G, prog='dot')
     
     dpiLoRez    = 100
     dpiHiRez    = 450
@@ -135,9 +135,12 @@ def networkx2png(G, outFile):
     linewidths  = 1.0 if (numNodes < aLotOfNodes) else (1.0/scale * 3.0)
     width       = 1.0 if (numNodes < aLotOfNodes) else (1.0/scale * 3.0)
 
-    networkx.draw(G, pos, node_list=node_list, node_color=node_color,
-                  with_labels=True, labels=labels, font_size=font_size, node_size=node_size,
-                  linewidths=linewidths, width=width)
+    #networkx.draw(G, pos, node_list=node_list, node_color=node_color,
+    #              with_labels=True, labels=labels, font_size=font_size, node_size=node_size,
+    #              linewidths=linewidths, width=width)
+    networkx.draw_spring(G, node_list=node_list, node_color=node_color,
+                         with_labels=True, labels=labels, font_size=font_size, node_size=node_size,
+                         linewidths=linewidths, width=width)
     
     plt.draw()      
     dpi = dpiLoRez if (numNodes < aLotOfNodes) else dpiHiRez

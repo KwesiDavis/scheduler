@@ -5,30 +5,63 @@ A Python implementation of FBP guided by concepts in
 
 Installing
 ======
-Requires Python 2.6
-Requires networkx and matplotlib if graph plots are enabled.
+Using Python 2.6
+
+1. Get virtualenv (see https://virtualenv.pypa.io/en/latest/virtualenv.html#installation)
+   ```
+   mkdir downloads/virtualenv/
+   cd downloads/virtualenv/
+   curl -O https://pypi.python.org/packages/source/v/virtualenv/virtualenv-1.11.6.tar.gz
+   tar xvfz virtualenv-1.11.6.tar.gz
+   cd virtualenv-1.11.6/
+   /usr/bin/python setup.py install --user
+   ```
+2. Create a virtual environment (see http://docs.python-guide.org/en/latest/dev/virtualenvs/)
+   Note: This causes 'setuptools' and 'pip' to get installed in the virtual environment.
+   ```
+   mkdir enviroments
+   cd enviroments/
+   /usr/home/<user_name>/.local/bin/virtualenv venv
+   ```
+3. Activate virtual environment
+   ```
+   bash
+   source ./venv/bin/activate
+   ```
+4. Install dependencies (into virtual environment)
+   Note: If using Python 2.7 or above 'argparse' is not required.
+   Note: If not using '-plot' option 'networkx', 'numpy', 'matplotlib' not required.
+   ```
+   pip install argparse
+   pip install networkx
+   pip install numpy
+   pip install matplotlib
+   ```
+5. Build Scheduler (into virtual environment)
+   cd Scheduler
+   python setup.py install --record installed_files.txt
 
 Running
 ======
 1. Run Scheduler on a JSON graph file.
    ```
-   python scheduler.py -file /path/to/my/graph.json
+   python run_scheduler.py -file /path/to/my/graph.json
    ```
 2. Set Scheduler to desired log-level: 'INFO', 'WARN', 'DEBUG', etc.
    ```
-   python scheduler.py -file /path/to/my/graph.json -loglevel info
+   python run_scheduler.py -file /path/to/my/graph.json -loglevel info
    ```
 3. Write Scheduler log to disk instead of console.
    ```
-   python scheduler.py -file /path/to/my/graph.json -logfile /path/to/my/log.txt
+   python run_scheduler.py -file /path/to/my/graph.json -logfile /path/to/my/log.txt
    ```
 4. Draw an image of the network Scheduler is running.
    ```
-   python scheduler.py -file /path/to/my/graph.json -plot /path/to/my/image.png
+   python run_scheduler.py -file /path/to/my/graph.json -plot /path/to/my/image.png
    ```
 5. Synchronize the start of every process to the 'Enter'-key to step through execution serially.
    ```
-   python scheduler.py -file /path/to/my/graph.json -sync
+   python run_scheduler.py -file /path/to/my/graph.json -sync
    ```
 
 Status

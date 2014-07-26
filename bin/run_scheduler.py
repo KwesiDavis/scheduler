@@ -1,8 +1,6 @@
-#!/usr/local/bin/python
 import sys
-sys.path.insert(0, '/usr/pic1/noflo/projects/actionflow/github/scheduler/')
-
-import logging, argparse
+import logging
+import argparse
 import scheduler.network
 import scheduler.util.editor
 import scheduler.util.iip
