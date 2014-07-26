@@ -5,9 +5,10 @@ A Python implementation of FBP guided by concepts in
 
 Installing
 ======
-### Using Python 2.6
+#### Using Python 2.6
 
-### Get virtualenv (see https://virtualenv.pypa.io/en/latest/virtualenv.html#installation)
+#### Get virtualenv 
+(see https://virtualenv.pypa.io/en/latest/virtualenv.html#installation)
 ```
 mkdir downloads/virtualenv/
 cd downloads/virtualenv/
@@ -16,19 +17,20 @@ tar xvfz virtualenv-1.11.6.tar.gz
 cd virtualenv-1.11.6/
 /usr/bin/python setup.py install --user
 ```
-### Create a virtual environment (see http://docs.python-guide.org/en/latest/dev/virtualenvs/)
+#### Create a virtual environment 
+(see http://docs.python-guide.org/en/latest/dev/virtualenvs/)
 * Note: This causes 'setuptools' and 'pip' to get installed in the virtual environment.
 ```
 mkdir enviroments
 cd enviroments/
 /usr/home/<user_name>/.local/bin/virtualenv venv
 ```
-### Activate virtual environment
+#### Activate virtual environment
 ```
 bash
 source ./venv/bin/activate
 ```
-### Install dependencies (into virtual environment)
+#### Install dependencies (into virtual environment)
 * Note: If using Python 2.7 or above 'argparse' is not required.
 * Note: If not using '-plot' option 'networkx', 'numpy', 'matplotlib' not required.
 ```
@@ -37,7 +39,7 @@ pip install networkx
 pip install numpy
 pip install matplotlib
 ```
-### Build Scheduler (into virtual environment)
+#### Build Scheduler (into virtual environment)
 ```
 cd Scheduler
 python setup.py install --record installed_files.txt
@@ -45,23 +47,23 @@ python setup.py install --record installed_files.txt
 
 Running
 ======
-1. Run Scheduler on a JSON graph file.
+####  Run Scheduler on a JSON graph file.
 ```
 python run_scheduler.py -file /path/to/my/graph.json
 ```
-2. Set Scheduler to desired log-level: 'INFO', 'WARN', 'DEBUG', etc.
+####  Set Scheduler to desired log-level: 'INFO', 'WARN', 'DEBUG', etc.
 ```
 python run_scheduler.py -file /path/to/my/graph.json -loglevel info
 ```
-3. Write Scheduler log to disk instead of console.
+####  Write Scheduler log to disk instead of console.
 ```
 python run_scheduler.py -file /path/to/my/graph.json -logfile /path/to/my/log.txt
 ```
-4. Draw an image of the network Scheduler is running.
+####  Draw an image of the network Scheduler is running.
 ```
 python run_scheduler.py -file /path/to/my/graph.json -plot /path/to/my/image.png
 ```
-5. Synchronize the start of every process to the 'Enter'-key to step through execution serially.
+####  Synchronize the start of every process to the 'Enter'-key to step through execution serially.
 ```
 python run_scheduler.py -file /path/to/my/graph.json -sync
 ```
