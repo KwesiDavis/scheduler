@@ -1,6 +1,6 @@
 import networkx
 from matplotlib import pyplot as plt
-import scheduler.component
+import scheduler.component.base
 
 def connectionInfo(connection):
     '''
@@ -35,7 +35,7 @@ def processInfo(process, networkxId=None):
     #        processName (can be non-unique and is the GUI displayed name)
     name, info = process
     attr       = { 'component' : info['component'],
-                   'isSubNet'  : False,
+                   'isSubNet'  : info['component'] == 'SubNet',
                    'process'   : name }
     try:
         attr['metadata'] = info['metadata']
@@ -47,7 +47,27 @@ def processInfo(process, networkxId=None):
         attr['networkxId'] = networkxId
     return attr
 
-def json2networkx(jsonGraph, name='*main*'):
+def exportInfo(export, type, root='*main*'):
+    '''
+    '''
+    # Collect the connection data into source and target process/port pairs.
+    externalPort, internalInfo = export
+    srcIdx,       tgtIdx       = 0, 1
+    processIdx,   portIdx      = 0, 1
+    connData = [ (root, externalPort), (internalInfo['process'], internalInfo['port']) ]
+    # For out-ports, reverse how the connection data is interpreted such that
+    # the root is now the target (instead of the source) of the exported 
+    # interface connection.
+    if type == 'outports':
+        connData.reverse()
+    conn = { 'src' : { 'process' : connData[srcIdx][processIdx],
+                       'port'    : connData[srcIdx][portIdx] },
+             'tgt' : { 'process' : connData[tgtIdx][processIdx],
+                       'port'    : connData[tgtIdx][portIdx] } }
+    return connectionInfo(conn)
+
+#def json2networkx(jsonGraph, name='*main*', root=False):
+def json2networkx(jsonGraph, name='*main*', root=False):
     '''
     Constructs a NetworkX graph from the given JSON file.
     
@@ -57,17 +77,24 @@ def json2networkx(jsonGraph, name='*main*'):
     Returns:
         A NetworkX graph object.
     '''
-    # Create an empty graph
+    # Build a map from the JSON graph unique node name to the Networkx graph 
+    # unique node name.
+    jsonId2nxId = {}
+    
+    # Create a graph root
     rootId = 0 
-    attr   = { 'component'  : 'Main',
+    attr   = { 'component'  : 'SubNet',
                'isSubNet'   : True,
                'process'    : name,
                'networkxId' : rootId }
-    G = networkx.MultiDiGraph(**attr) # support mutiple edges between two nodes
-
+    G = networkx.MultiDiGraph(**attr) # support multiple edges between two nodes
+    # Put root in the graph as actual-data (in addition to the duplicate 
+    # metadata attached to the top-level MultiDiGraph object as attributes.   
+    if root:
+        # Populate graph with root node
+        G.add_node(rootId, **attr)
     # Do some bookkeeping
-    uniqueJsonNodeID = attr['process']
-    jsonId2nxId = { uniqueJsonNodeID : rootId }
+    jsonId2nxId[attr['process']]  = rootId
     
     # Populate graph with nodes
     for i, process in enumerate(jsonGraph['processes'].items()):
@@ -76,6 +103,7 @@ def json2networkx(jsonGraph, name='*main*'):
         G.add_node(networkxId, **attr)
         # Do some bookkeeping
         jsonId2nxId[attr['process']]  = attr['networkxId']
+        
     # Populate graph with edges
     for connection in jsonGraph['connections']:
         try:
@@ -85,18 +113,22 @@ def json2networkx(jsonGraph, name='*main*'):
         srcUniqueJsonNodeID, tgtUniqueJsonNodeID = edgeInfo 
         edge = jsonId2nxId[srcUniqueJsonNodeID], jsonId2nxId[tgtUniqueJsonNodeID]
         G.add_edge(*edge, **dict(attr))
-    
+        
     # Define top-level interface
-    '''
     G.graph['export'] = []
-    
-    for exportIter in [jsonGraph['inports'], jsonGraph['outports']]:
-        for export in exportIter:
-            edgeInfo, attr = exportInfo(connection)
+    for type in ['inports', 'outports']:
+        for exportItem in jsonGraph[type].items():
+            edgeInfo, attr = exportInfo(exportItem, type, root=name)
             srcUniqueJsonNodeID, tgtUniqueJsonNodeID = edgeInfo 
             edge = jsonId2nxId[srcUniqueJsonNodeID], jsonId2nxId[tgtUniqueJsonNodeID]
+            # Put connections to root in the graph, as actual-data (in addition
+            # to the duplicate metadata attached to the top-level MultiDiGraph 
+            # object as the 'export' attribute.   
+            if root:
+                # Populate graph with edges to the root node
+                G.add_edge(*edge, **dict(attr))
             G.graph['export'].append( (edge, attr) )
-    '''
+            
     return G
 
 def networkx2png(G, outFile):
@@ -114,14 +146,14 @@ def networkx2png(G, outFile):
     
     type2color = {False : 'yellow',
                   True  : 'cyan'}
-    for i, node in enumerate(G):
-        indx = i+1 # index zero reserved for root node
+    for node in G:
+        index = node
         node_list.append(node)
-        if scheduler.component.isFramework(G.node[indx]['process']):
+        if scheduler.component.base.isFramework(G.node[index]['process']):
             node_color.append('red') # special processes
         else:
-            node_color.append(type2color[G.node[indx]['isSubNet']])
-        labels[node] = G.node[indx]['process']
+            node_color.append(type2color[G.node[index]['isSubNet']])
+        labels[node] = G.node[index]['process']    
 
     #pos = networkx.graphviz_layout(G, prog='dot')
     

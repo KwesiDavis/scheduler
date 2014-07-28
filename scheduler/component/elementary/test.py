@@ -1,5 +1,6 @@
 import sys, select
-import scheduler.component
+import scheduler.network
+import scheduler.component.base
 import logging  
 
 def add(core, inports, outports):
@@ -18,7 +19,7 @@ def add(core, inports, outports):
         b      = core['getData']('b')
         result = a+b
         core['setData']('sum', result)    
-    scheduler.component.base(core, inports, outports, fxn)
+    scheduler.component.base.fxn(core, inports, outports, fxn)
 
 def stdin(core, inports, outports):
     '''
@@ -47,7 +48,7 @@ def stdin(core, inports, outports):
                 # The user hit 'Ctrl-D'; which means end-of-file.
                 else:
                     break
-    scheduler.component.base(core, inports, outports, fxn)
+    scheduler.component.base.fxn(core, inports, outports, fxn)
     
 def stdout(core, inports, outports):
     '''
@@ -70,7 +71,7 @@ def stdout(core, inports, outports):
                     break
                 sys.stdout.write(str(line)+'\n')
                 sys.stdout.flush()
-    scheduler.component.base(core, inports, outports, fxn)
+    scheduler.component.base.fxn(core, inports, outports, fxn)
     
 def noop(core, inports, outports):
     '''
@@ -86,7 +87,7 @@ def noop(core, inports, outports):
     def fxn(core):
         data = core['getData']('in')
         core['setData']('out', data)
-    scheduler.component.base(core, inports, outports, fxn)
+    scheduler.component.base.fxn(core, inports, outports, fxn)
 
 def info(core, inports, outports):
     '''
@@ -105,7 +106,7 @@ def info(core, inports, outports):
             except EOFError: break             
             logging.info(str(data))
             core['setData']('out', data)
-    scheduler.component.base(core, inports, outports, fxn)
+    scheduler.component.base.fxn(core, inports, outports, fxn)
     
 def iip(core, inports, outports):
     '''
@@ -126,7 +127,7 @@ def iip(core, inports, outports):
             data, processName, portName = iip
             portName = '{proc}_{port}'.format(proc=processName, port=portName)  
             core['setData'](portName, data)
-    scheduler.component.base(core, inports, outports, fxn)
+    scheduler.component.base.fxn(core, inports, outports, fxn)
 
 def merge(core, inports, outports):
     '''
@@ -142,15 +143,18 @@ def merge(core, inports, outports):
     '''
     def fxn(core):
         connIndices = range(core['lenAt']('in'))
+        # Keep track of the status of every connection to this port
         eof = [False for connIndx in connIndices]
         while True:
             for connIndx in connIndices:
                 if not eof[connIndx]:
                     try:
                         data = core['getDataAt'](connIndx, 'in', block=False)
-                    except IOError:
+                    except IOError:                        
+                        # no data on in-port
                         continue
                     except EOFError:
+                        # no more data is coming                        
                         eof[connIndx] = True
                         continue
                     core['setData']('out', data)
@@ -158,7 +162,7 @@ def merge(core, inports, outports):
                 # All upstream connections are closed so stop polling 
                 # for data
                 break
-    scheduler.component.base(core, inports, outports, fxn)
+    scheduler.component.base.fxn(core, inports, outports, fxn)
 
 def join(core, inports, outports):
     '''
@@ -189,7 +193,7 @@ def join(core, inports, outports):
                     break
             if not isEndOfFile:
                 core['setData']('out', tuple(group))
-    scheduler.component.base(core, inports, outports, fxn)
+    scheduler.component.base.fxn(core, inports, outports, fxn)
 
 def unblock(core, inports, outports):
     '''
@@ -217,7 +221,75 @@ def unblock(core, inports, outports):
                     pass
                 except TypeError:
                     pass
-    scheduler.component.base(core, inports, outports, fxn)    
+    scheduler.component.base.fxn(core, inports, outports, fxn)    
+
+def subnet(core, inports, outports):
+    '''
+    Creates a bridge between to independent networks by forwarding IPs to the
+    right ports.
+    '''
+    def fxn(core):
+        # All inputs are ready so create the sub-network
+        # Note: We ignore any IIPs returned for the new network.
+        config = core['getConfig']()
+        graph  = scheduler.util.editor.json2graph(config['graph'])
+        network, interface, _ = scheduler.network.new(graph)
+        scheduler.network.start(network)
+        # Do EOF bookkeeping on all in-ports and out-ports
+        ins  = 'externalInports'
+        outs = 'internalOutports'
+        eof  = {ins  : {}.fromkeys(interface['inports'].keys(),  False),
+                outs : {}.fromkeys(interface['outports'].keys(), False)}
+        # Forward external data to the internal sub-net and forward internal
+        # results to the external out-ports.
+        while True:
+            # Handle data sent to the sub-net via connections on its external
+            # in-port interface.
+            for inportName in interface['inports'].keys():
+                # If this connection is open and there is data available 
+                # get it. 
+                if not eof[ins][inportName]:
+                    try:
+                        data = core['getData'](inportName, block=False)
+                    except IOError:
+                        # no data on in-port
+                        continue
+                    except EOFError:
+                        # no more data is coming
+                        eof[ins][inportName] = True
+                        continue
+                    # Forward the data, that arrived on the external in-port,
+                    # to the corresponding internal in-port.
+                    leakyPipe = interface['inports'][inportName]
+                    conn = scheduler.util.plumber.getConnection(leakyPipe)
+                    conn.send(data)
+            # Handle data exiting the sub-net via connections to out-ports on
+            # internal sub-processes.
+            for outportName in interface['outports'].keys():
+                # If this connection is open and there is data available 
+                # get it. 
+                if not eof[outs][outportName]:                
+                    leakyPipe = interface['outports'][outportName]
+                    conn = scheduler.util.plumber.getConnection(leakyPipe)
+                    if not conn.poll():
+                        # no data on out-port
+                        continue
+                    try:
+                        data = conn.recv()
+                    except EOFError:
+                        # no more data is coming
+                        eof[outs][outportName] = True
+                        continue                
+                # Forward the data, that arrived on the internal out-port,
+                # to the corresponding external out-port.
+                core['setData'](outportName, data)
+            if all(eof[ins].values()) and all(eof[outs].values()) :
+                # All not data is traveling into or out of the sub-net, shut 
+                # it down.
+                break
+        # We are done.
+        scheduler.network.stop(network)    
+    scheduler.component.base.fxn(core, inports, outports, fxn)
 
 '''
 A dictionary that maps component names to a function object. The function 
@@ -226,7 +298,8 @@ represents the component's business logic.
 library = { '_IIPs_'   : iip,
             'Merge'    : merge,
             'Join'     : join,
-            'UnBlock'  : unblock,      
+            'UnBlock'  : unblock,
+            'SubNet'   : subnet,
             'Add'      : add,
             '_StdIn_'  : stdin,
             '_StdOut_' : stdout,

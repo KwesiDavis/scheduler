@@ -1,7 +1,8 @@
 import logging
 from multiprocessing import Process
 from threading import Thread
-import scheduler.component.test
+import scheduler.component.base
+import scheduler.component.elementary.test
 import scheduler.util.plumber
 
 def new(graph):
@@ -37,8 +38,8 @@ def new(graph):
         tgtProcessName   = connection['tgt']['process']
         tgtPortName      = connection['tgt']['port'] 
         # connect the source process to the target process
-        isSrcThreaded    = scheduler.component.isThreaded(graph['processes'][srcProcessName]['component'])
-        isTgtThreaded    = scheduler.component.isThreaded(graph['processes'][tgtProcessName]['component'])
+        isSrcThreaded    = scheduler.component.base.isThreaded(graph['processes'][srcProcessName]['component'])
+        isTgtThreaded    = scheduler.component.base.isThreaded(graph['processes'][tgtProcessName]['component'])
         pipeTgt, pipeSrc = scheduler.util.plumber.pipePair(srcProcessName, srcPortName, isSrcThreaded,
                                                            tgtProcessName, tgtPortName, isTgtThreaded,
                                                            leakyPipes)
@@ -63,8 +64,8 @@ def new(graph):
         # Generate a process instance from a component name
         logging.debug('PROC: {proc}'.format(proc=processName))
         componentName = graph['processes'][processName]['component']
-        fxn = scheduler.component.test.library[componentName]
-        if scheduler.component.isThreaded(componentName):
+        fxn = scheduler.component.elementary.test.library[componentName]
+        if scheduler.component.base.isThreaded(componentName):
             processes.append( Thread(target=fxn, kwargs=interfaces[processName]) )
         else:
             processes.append( Process(target=fxn, kwargs=interfaces[processName]) )

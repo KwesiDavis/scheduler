@@ -1,0 +1,25 @@
+{
+    "processes" : { "proc1" : { "component" : "NoOp",
+                                "metadata"  : { "0" : "zero", 
+                                                "1" : "one",
+                                                "2" : "two" } },
+                    "proc2" : { "component" : "NoOp",
+                                "metadata"  : { "3" : "three", 
+                                                "4" : "four",
+                                                "5" : "five" } }
+    },
+    "inports": {}, 
+    "connections": [
+        {
+          "src": {
+            "process": "proc1", 
+            "port": "out"
+          }, 
+          "tgt": {
+            "process": "proc2",
+            "port": "in"
+           }
+        }
+    ],
+    "outports": {}
+}

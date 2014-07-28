@@ -1,0 +1,31 @@
+{
+    "processes" : { "proc1" : { "component" : "NoOp",
+                                "metadata"  : { "6"        : "six", 
+                                                "7"        : "seven",
+                                                "8"        : "eight",
+                                                "config"   : { "A" : "a",
+                                                             "B" : "b",
+                                                             "C" : "c" } } },
+                    "proc2" : { "component" : "NoOp",
+                                "metadata"  : { "9"        : "nine", 
+                                                "10"       : "ten",
+                                                "11"       : "eleven",
+                                                "config" : { "X" : "x",
+                                                             "Y" : "y",
+                                                             "Z" : "z" } } }
+    },
+    "inports": {}, 
+    "connections": [
+        {
+          "src": {
+            "process": "proc1", 
+            "port": "out"
+          }, 
+          "tgt": {
+            "process": "proc2",
+            "port": "in"
+           }
+        }
+    ],
+    "outports": {}
+}
