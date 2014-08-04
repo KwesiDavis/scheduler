@@ -90,10 +90,9 @@ def fxn(core, inports, outports, fxn):
     # event support
     state['has all inputs'] = False
     # Close un-used end of Pipe connection
-    for ports in [inports, outports, core.get('ports', {})]:
-        for portName, leakyPipeList in ports.items():
-            for leakyPipe in leakyPipeList:
-                scheduler.util.plumber.plugLeak(leakyPipe, core['name'])
+    processName = core['name']
+    scheduler.util.plumber.closeByProcess(core['connInfos'], processName, sharing=core['sharing'])
+    
     # Log that this component has started
     logging.debug('BGIN: {name}'.format(name=core['name']))
     # Create helper functions
@@ -154,13 +153,12 @@ def fxn(core, inports, outports, fxn):
             with the given connection index.
         '''
         try:
-            leakyPipe = inports[inportName][connIndex]
+            conn = inports[inportName][connIndex]
         except KeyError, e:
             # Trying to get data from an unconnected in-port
             logging.info('Data requested from an unconnected port: {proc}.{port}'.format(proc=core['name'],
                                                                                          port=inportName))
             raise e
-        conn = scheduler.util.plumber.getConnection(leakyPipe)
         if not block:
             if not conn.poll():
                 raise IOError('In-port {proc}.{port} not ready for recv()'.format(proc=core['name'],
@@ -215,7 +213,7 @@ def fxn(core, inports, outports, fxn):
             # Load balance across out connection (per port) 
             numSetCalls, numConnections = state['set data count'][outportName]
             roundRobinIndex = numSetCalls % numConnections  
-            leakyPipe = outports[outportName][roundRobinIndex]
+            conn = outports[outportName][roundRobinIndex]
             state['set data count'][outportName][0] += 1
         except KeyError:
             # Trying to send data to an unconnected out-port
@@ -223,7 +221,6 @@ def fxn(core, inports, outports, fxn):
                                                                                         proc=core['name'],
                                                                                         port=outportName))
             return
-        conn = scheduler.util.plumber.getConnection(leakyPipe)
         conn.send(data)
     def getConfigFxn():
         '''
@@ -253,8 +250,8 @@ def fxn(core, inports, outports, fxn):
     logging.debug('WAIT: Waiting on {name}\'s in-ports {inports} to close...'.format(name=core['name'], inports=inports.keys()))
     while not isAllInputsClosed:
         status = []
-        for portName, leakyPipeList in inports.items():
-            for i, leakyPipe in enumerate(leakyPipeList):
+        for portName, inConnList in inports.items():
+            for i in range(len(inConnList)):
                 try:
                     core['getDataAt'](i, portName)
                     status.append(False)
@@ -264,10 +261,9 @@ def fxn(core, inports, outports, fxn):
     logging.debug('WAIT: Done waiting! Process {name} is shutting down.'.format(name=core['name']))
     # Close all connections
     for ports in [inports, outports, core.get('ports', {})]:
-        for portName, leakyPipeList in ports.items():
-            for leakyPipe in leakyPipeList:
+        for portName, connList in ports.items():
+            for conn in connList:
                 logging.debug('CONN: [{pid}] On exit, process "{proc}" closed "{proc}.{port}".'.format(pid=os.getpid(), proc=core['name'], port=portName))        
-                conn = scheduler.util.plumber.getConnection(leakyPipe)
                 conn.close()
     # Log that this component has finished       
     logging.debug('END : {name}'.format(name=core['name']))
