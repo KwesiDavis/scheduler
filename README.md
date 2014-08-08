@@ -5,42 +5,44 @@ A Python implementation of FBP guided by concepts in
 
 Installing
 ======
-#### Using Python 2.6
+#### Using Python 2.7
 
-#### Get virtualenv 
-(see https://virtualenv.pypa.io/en/latest/virtualenv.html#installation)
-```
-mkdir downloads/virtualenv/
-cd downloads/virtualenv/
-curl -O https://pypi.python.org/packages/source/v/virtualenv/virtualenv-1.11.6.tar.gz
-tar xvfz virtualenv-1.11.6.tar.gz
-cd virtualenv-1.11.6/
-/usr/bin/python setup.py install --user
-```
+#### Get virtualenv
+On Ubuntu:
+* Launch theUbuntu Software Center
+* Search for 'virtualenv' and install it
 #### Create a virtual environment 
 (see http://docs.python-guide.org/en/latest/dev/virtualenvs/)
 * Note: This causes 'setuptools' and 'pip' to get installed in the virtual environment.
 ```
 mkdir enviroments
 cd enviroments/
-/usr/home/<user_name>/.local/bin/virtualenv venv
+virtualenv venv
 ```
 #### Activate virtual environment
 ```
-bash
 source ./venv/bin/activate
 ```
+* Note: If not using bash, run ```bash``` command before sourcing the activate script.
 #### Install dependencies (into virtual environment)
-* Note: If using Python 2.7 or above 'argparse' is not required.
-* Note: If not using '-plot' option 'networkx', 'numpy', 'matplotlib' not required.
+On Ubuntu:
+* Launch theUbuntu Software Center
+* Search for and install the following tools:
+* * python-dev
+* * libfreetype6-dev
+* * graphviz
+* * libgraphviz-dev
+Install the following Python packages:
+* Note: If not using '-plot' option 'networkx', 'numpy', 'matplotlib', 'pygraphiz' not required.
 ```
-pip install argparse
 pip install networkx
 pip install numpy
 pip install matplotlib
+pip install pygraphiz
 ```
 #### Build Scheduler (into virtual environment)
 ```
+git clone https://github.com/KwesiDavis/scheduler.git Scheduler
 cd Scheduler
 python setup.py install --record installed_files.txt
 ```
