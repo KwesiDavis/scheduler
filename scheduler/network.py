@@ -1,5 +1,5 @@
-import logging
-from multiprocessing import Process
+import logging, os
+from multiprocessing import Process, Pipe
 from threading import Thread
 import scheduler.component.base
 import scheduler.component.elementary.test
@@ -27,7 +27,8 @@ def new(graph):
     #                                   'sum' : connSrcForPortSum} }
     interfaces = {}
     # parse connections
-    leakyPipes = [] # Pipe() artifacts :(
+    conns = {}
+    threads = set(['<none>'])
     for connection in graph['connections'] :
         # get connection info
         try:
@@ -36,24 +37,37 @@ def new(graph):
             continue # skip IIP's            
         srcPortName      = connection['src']['port']
         tgtProcessName   = connection['tgt']['process']
-        tgtPortName      = connection['tgt']['port'] 
-        # connect the source process to the target process
-        isSrcThreaded    = scheduler.component.base.isThreaded(graph['processes'][srcProcessName]['component'])
-        isTgtThreaded    = scheduler.component.base.isThreaded(graph['processes'][tgtProcessName]['component'])
-        pipeTgt, pipeSrc = scheduler.util.plumber.pipePair(srcProcessName, srcPortName, isSrcThreaded,
-                                                           tgtProcessName, tgtPortName, isTgtThreaded,
-                                                           leakyPipes)
+        tgtPortName      = connection['tgt']['port']
         logging.debug('PIPE: {srcProc}.{srcPort} -> {tgtProc}.{tgtPort}'.format(srcProc=srcProcessName,
                                                                                 srcPort=srcPortName,
                                                                                 tgtProc=tgtProcessName,
                                                                                 tgtPort=tgtPortName))
+
+        # Build the interface of a worker based on it connections
+        tgtConn, srcConn = Pipe()
         srcPortNameStr = str(srcPortName) # unicode-to-str
-        interfaces.setdefault(srcProcessName, {}).setdefault('outports', {}).setdefault(srcPortNameStr, []).append(pipeSrc)
+        interfaces.setdefault(srcProcessName, {}).setdefault('outports', {}).setdefault(srcPortNameStr, []).append(srcConn)
         tgtPortNameStr = str(tgtPortName) # unicode-to-str
-        interfaces.setdefault(tgtProcessName, {}).setdefault('inports',  {}).setdefault(tgtPortNameStr, []).append(pipeTgt)
+        interfaces.setdefault(tgtProcessName, {}).setdefault('inports',  {}).setdefault(tgtPortNameStr, []).append(tgtConn)
+
+        # Keep a list of all in-ports and out-ports
+        conns.setdefault('inports', []).append( scheduler.util.plumber.connectionInfo(tgtConn, tgtProcessName, tgtPortName, parent=None) )
+        conns.setdefault('outports', []).append( scheduler.util.plumber.connectionInfo(srcConn, srcProcessName, srcPortName, parent=None) )
+        # Keep track of workers that share a PID (and file descriptors) 
+        isSrcThreaded = scheduler.component.base.isThreaded(graph['processes'][srcProcessName]['component'])
+        if isSrcThreaded:
+            threads.add(srcProcessName)
+        isTgtThreaded = scheduler.component.base.isThreaded(graph['processes'][tgtProcessName]['component'])
+        if isTgtThreaded:
+            threads.add(tgtProcessName)
+        
     # parse processes
     processes = []
     for processName in graph['processes'].keys():
+        # Every process gets all the connections explicitly
+        interfaces[processName].setdefault('core', {})['connInfos'] = conns
+        # Every process knows the names of the threads that are using (or sharing) connections
+        interfaces[processName].setdefault('core', {})['sharing'] = list(threads) 
         # Every process gets a name
         interfaces[processName].setdefault('core', {})['name'] = processName
         # Every keeps its metadata, if any
@@ -69,7 +83,7 @@ def new(graph):
             processes.append( Thread(target=fxn, kwargs=interfaces[processName]) )
         else:
             processes.append( Process(target=fxn, kwargs=interfaces[processName]) )
-    return (processes, leakyPipes)
+    return (processes, (conns, list(threads)))
 
 def start(network):
     '''
@@ -79,8 +93,8 @@ def start(network):
         network - A tuple returned from new() representing a network of 
                   connected processes.
     '''
-    processes, leakyPipes = network
-    scheduler.util.plumber.start(processes, leakyPipes)
+    (processes, leak) = network
+    scheduler.util.plumber.start(processes, leak)
 
 def stop(network):
     '''
