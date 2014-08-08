@@ -36,10 +36,13 @@ source ./venv/bin/activate
 On Ubuntu:
 * Launch theUbuntu Software Center
 * Search for and install the following tools:
-* * python-dev
-* * libfreetype6-dev
-* * graphviz
-* * libgraphviz-dev
+```
+python-dev
+libfreetype6-dev
+graphviz
+libgraphviz-dev
+```
+
 Install the following Python packages:
 * Note: If not using '-plot' option 'networkx', 'numpy', 'matplotlib', 'pygraphiz' not required.
 ```
