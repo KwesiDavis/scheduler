@@ -1,59 +1,52 @@
 '''
-Parse initial information packets
+Merge initial information packets with packets coming from an exported in-port.
 '''
 import scheduler.util.editor
 
 def addFromGraph(graph):
     '''
-    Supplies the given graph with initial information packets (or IIPs). IIPs 
-    are represented in the JSON file as connections (with data but no source 
-    process). The IIPs are parsed out of the graph file connections and used to
-    build configuration data for a special IIP process that is connected to all
-    the targets of the IIP data.   
+    When an IIP connection and an exported in-port connection are both 
+    connected to the same internal in-port, we want data to arrive at the 
+    target port on a first-come first-serve basis.  The Merge component models 
+    this behavior so we insert one.  As a result, the multiple connection lands 
+    on the input of the Merge component and its output feeds into the targeted 
+    internal in-port. In all other cases, multiple connections are left as-is.
+    
+    Note: Multiple connections, on an in-port, are not supported, in the 
+          general case, because it is difficult to know if the graph author
+          wants 'join' or 'merge' behavior at the multiple connection. In this
+          case, however, we know the author intends to merge incoming data. 
     
     Parameters:
         graph - A graph to modify.
+        
+    Returns:
+        The modified graph.
     ''' 
-    # create empty graph to contain edits
-    graphEdits     = {}
-    iips           = {}
-    iipProcessName = '*iips*' 
-    for i, connection in enumerate( graph['connections'] ):
+    graphEdits  = {}
+    target2port = dict([((value['process'], value['port']), key) for key, value in graph['inports'].items()])
+    mergeCount  = 0
+    for connection in graph['connections']:
         # All IIP connection will have data to send.
         try:
-            data = connection['data']
+            connection['data']
         except KeyError:
-            # Connections between network processes are handled elsewhere.
+            # Not an IIP so skip it.
             continue
         tgtProcessName = connection['tgt']['process']
         tgtPortName    = connection['tgt']['port']
-        # Our IIP process will have out-ports named after each IIP's 
-        # target process/port.
-        srcProcessName = iipProcessName 
-        srcPortName    = '{proc}_{port}'.format(proc=tgtProcessName, port=tgtPortName )
-        # Wire the IIP process into the graph.
-        scheduler.util.editor.connection(graphEdits, (srcProcessName, srcPortName), (tgtProcessName, tgtPortName))
-        # Build configuration data for the IIP process.
-        # Keep track of the connections, in the original graph, that 
-        # represented IIP data so we can delete them later.
-        iips[i] = [data, tgtProcessName, tgtPortName]
-    # Instead of representing IIPs as special connections (that have data 
-    # and no source process/port), we represent them as a process with 
-    # configuration data that is wired into the network at the IIPs' target
-    # process/ports.
-    # MAINT: These could potentially clobber existing connections. We may need 
-    #        to add a Merge node. When multiple connections are required. 
-    if iips:
-        # Create the special IIP process with proper 
-        # configuration data.
-        iipConfig = {'iips' : iips.values() }
-        scheduler.util.editor.process(graphEdits, iipProcessName, "_IIPs_", config=iipConfig)
-        # Remove IIPs-as-special-connection entries from original graph
-        deleteIndex = iips.keys()
-        deleteIndex.reverse()
-        for i in deleteIndex:
-            del graph['connections'][i]
-        # Update graph with IIP process attached to the 
-        # appropriate processes 
-        scheduler.util.editor.modify(graph, graphEdits)
+        try:
+            port = target2port[(tgtProcessName, tgtPortName)]
+        except KeyError:
+            # Not multiple-connection so skip it
+            continue
+        mergeProcessName = '*merge{index}*'.format(index=str(mergeCount))
+        mergeCount += 1
+        scheduler.util.editor.process(graphEdits, mergeProcessName, "Merge")
+        scheduler.util.editor.connection(graphEdits, (mergeProcessName, 'out'), (tgtProcessName, tgtPortName))
+        connection['tgt']['process']      = mergeProcessName
+        connection['tgt']['port']         = 'in'
+        graph['inports'][port]['process'] = mergeProcessName
+        graph['inports'][port]['port']    = 'in'
+    scheduler.util.editor.modify(graph, graphEdits)
     return graph
