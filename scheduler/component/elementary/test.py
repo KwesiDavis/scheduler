@@ -1,7 +1,7 @@
-import sys, select
+import os, sys, select, logging  
 import scheduler.network
 import scheduler.component.base
-import logging  
+import scheduler.util.editor
 
 def add(core, inports, outports):
     '''
@@ -108,27 +108,6 @@ def info(core, inports, outports):
             core['setData']('out', data)
     scheduler.component.base.fxn(core, inports, outports, fxn)
     
-def iip(core, inports, outports):
-    '''
-    Logic for a special 'IIP' component.
-    
-    Reads its configuration data and send initial information packets (or IIPs)
-    to out-ports named after target in-ports for the IIPs data.
-    
-    Parameters:
-        config - IIP data of the form: {'iip':[(data1, process1, port1), 
-                                               (data2, process2, port2),
-                                               (dataN, processN, portN)]}
-        <process>_<port> - A port named after a target in-port for IIP data.
-    '''
-    def fxn(core):
-        config = core['getConfig']()
-        for iip in config['iips']:
-            data, processName, portName = iip
-            portName = '{proc}_{port}'.format(proc=processName, port=portName)  
-            core['setData'](portName, data)
-    scheduler.component.base.fxn(core, inports, outports, fxn)
-
 def merge(core, inports, outports):
     '''
     Logic for the 'Merge' component.
@@ -162,7 +141,7 @@ def merge(core, inports, outports):
                 # All upstream connections are closed so stop polling 
                 # for data
                 break
-    scheduler.component.base.fxn(core, inports, outports, fxn)
+    scheduler.component.base.fxn(core, inports, outports, fxn, wait=False)
 
 def join(core, inports, outports):
     '''
@@ -225,15 +204,35 @@ def unblock(core, inports, outports):
 
 def subnet(core, inports, outports):
     '''
-    Creates a bridge between to independent networks by forwarding IPs to the
+    Creates a bridge between two independent networks by forwarding IPs to the
     right ports.
     '''
     def fxn(core):
+        pid        = os.getpid() # for logging
+        FIRST_CONN = 0           # only one connection on exported ports
+        
         # All inputs are ready so create the sub-network
         # Note: We ignore any IIPs returned for the new network.
         config = core['getConfig']()
         graph  = scheduler.util.editor.json2graph(config['graph'])
-        network, interface, _ = scheduler.network.new(graph)
+        
+        # These are the open file descriptors (or connections) associated with
+        # the ports on this process' external interface.  When this process 
+        # creates child processes for the sub-network, these open file 
+        # descriptors are inherited by (or 'leaked' into) the child processes. 
+        # The child processes will not use these file descriptors so they must
+        # close their inherited copy.
+        processName = core['name']
+        leak        = scheduler.util.plumber.getLeakByProcess( core['leak'], processName )
+        network     = scheduler.network.new(graph, parentProcessName=processName, iips=False, leak=leak)
+        # Note: The network's exported interface is identical to this current 
+        #       component's interface.  The named ports are the same, but this 
+        #       component's in-ports are on the target end of its pipe while 
+        #       the network's in-ports, are on the source end of its pipe.  A 
+        #       similar relationship applies to the out-ports.  The component's 
+        #       out-ports are source connections, but the network's out-ports
+        #       are targets.  
+        interface   = network['interface']
         scheduler.network.start(network)
         # Do EOF bookkeeping on all in-ports and out-ports
         ins  = 'externalInports'
@@ -249,6 +248,11 @@ def subnet(core, inports, outports):
                 # If this connection is open and there is data available 
                 # get it. 
                 if not eof[ins][inportName]:
+                    # Get the source end of the pipe that is connected to the 
+                    # corresponding internal in-port.
+                    # exported in-ports are connected to one, and only one, internal in-port 
+                    assert( len(interface['inports'][inportName]) == 1 ) 
+                    conn = interface['inports'][inportName][FIRST_CONN]
                     try:
                         data = core['getData'](inportName, block=False)
                     except IOError:
@@ -257,28 +261,49 @@ def subnet(core, inports, outports):
                     except EOFError:
                         # no more data is coming
                         eof[ins][inportName] = True
+                        # Since the external in-port is closed, let's close 
+                        # the source end of the pipe the is connected to the
+                        # corresponding internal in-port.
+                        logging.debug('CONN: [{pid}] Process "{proc}" closed "{proc}.{port} [{index}]".'.format(pid=pid, 
+                                                                                                                proc=network['name'], 
+                                                                                                                port=inportName, 
+                                                                                                                index=FIRST_CONN))        
+                        conn.close()
                         continue
-                    # Forward the data, that arrived on the external in-port,
-                    # to the corresponding internal in-port.
-                    leakyPipe = interface['inports'][inportName]
-                    conn = scheduler.util.plumber.getConnection(leakyPipe)
+                    # Forward the data from the external in-port to internal
+                    # in-port.
                     conn.send(data)
+                    logging.debug('SEND: {proc}.{port} = {data} (internal)'.format(data=str(data),
+                                                                                   proc=processName,
+                                                                                   port=inportName))
             # Handle data exiting the sub-net via connections to out-ports on
             # internal sub-processes.
             for outportName in interface['outports'].keys():
                 # If this connection is open and there is data available 
                 # get it. 
                 if not eof[outs][outportName]:                
-                    leakyPipe = interface['outports'][outportName]
-                    conn = scheduler.util.plumber.getConnection(leakyPipe)
+                    # exported out-ports are connected to one, and only one, internal out-port 
+                    assert(len(interface['outports'][outportName]) == 1) 
+                    conn = interface['outports'][outportName][FIRST_CONN]
                     if not conn.poll():
                         # no data on out-port
                         continue
                     try:
                         data = conn.recv()
+                        logging.debug('RECV: {proc}.{port} = {data} (internal)'.format(data=str(data),
+                                                                                       proc=processName,
+                                                                                       port=outportName))                        
                     except EOFError:
                         # no more data is coming
                         eof[outs][outportName] = True
+                        # Since the internal out-port is closed, let's close 
+                        # the target end of the pipe that is connected to the
+                        # corresponding external out-port.                        
+                        logging.debug('CONN: [{pid}] Process "{proc}" closed "{proc}.{port} [{index}]".'.format(pid=pid, 
+                                                                                                                proc=network['name'], 
+                                                                                                                port=outportName, 
+                                                                                                                index=FIRST_CONN))        
+                        conn.close()
                         continue                
                 # Forward the data, that arrived on the internal out-port,
                 # to the corresponding external out-port.
@@ -295,8 +320,7 @@ def subnet(core, inports, outports):
 A dictionary that maps component names to a function object. The function 
 represents the component's business logic.
 '''
-library = { '_IIPs_'   : iip,
-            'Merge'    : merge,
+library = { 'Merge'    : merge,
             'Join'     : join,
             'UnBlock'  : unblock,
             'SubNet'   : subnet,
