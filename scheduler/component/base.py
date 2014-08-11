@@ -2,17 +2,25 @@ import os, logging
 from multiprocessing import Manager
 import scheduler.util.plumber
 
-def isThreaded(componentName):
+def isThreaded(graph, processName):
     '''
     Determine weather the given component should be started as a system-thread 
     or a system-process.
     
     Parameters:
-        componentName - The name of a component
+        graph - A graph of components connected together by data ports
+        processName - The name of a worker process
     Returns:
-        'True' if the given component should run in a thread or else 'False'.
+        'True' if the given worker process should run in a thread or else 'False'.
     '''
-    return componentName.startswith('_') and componentName.endswith('_') 
+    retval = False
+    # Use leading and trailing underscores to set default threading status
+    try:
+        componentName = graph['processes'][processName]['component']
+        retval = componentName.startswith('_') and componentName.endswith('_')
+    except KeyError:
+        pass
+    return retval
 
 def isFramework(processName):
     '''
@@ -65,7 +73,7 @@ def internalEvent(core, eventType):
     else:
         core['setData']('events', event)
     
-def fxn(core, inports, outports, fxn):
+def fxn(core, inports, outports, fxn, wait=True):
     '''
     This is canonical framework functionality for a generic component:
     * handle Pipe file descriptor leak
@@ -80,34 +88,24 @@ def fxn(core, inports, outports, fxn):
         inports - the named input ports
         outports - the named output ports
         fxn - the component logic 
+        wait - When 'True', the default, wait for data to arrive on all
+                      in-ports before starting the process. If 'False', start 
+                      as soon as any data arrives on any in-port.  
     '''
+    # Log that this component has started
+    logging.debug('BGIN: {name}'.format(name=core['name']))
+    
+    
     FIRST_CONN = 0
     state      = {}
     # round robin support
     state['set data count'] = {}
     for portName in outports.keys():
         state['set data count'][portName] = [ 0, len(outports[portName]) ]
-    # event support
-    state['has all inputs'] = False
     # Close un-used end of Pipe connection
     processName = core['name']
-    scheduler.util.plumber.closeByProcess(core['connInfos'], processName, sharing=core['sharing'])
-    
-    # Log that this component has started
-    logging.debug('BGIN: {name}'.format(name=core['name']))
+    scheduler.util.plumber.closeByProcess(core['leak'], processName)
     # Create helper functions
-    received = set([])
-    def checkInputs():
-        '''
-        Sends a 'ReceivedAllInputs' when data has arrived at all in-ports and
-        the process is ready execute its logic.
-        '''
-        # MAINT: Multi-input components like Merge are not handled properly.
-        #        We need to account for data arriving from every connection
-        #        not just the first one.   
-        if not state['has all inputs'] and received == set(inports.keys()):
-            internalEvent(core, 'ReceivedAllInputs')
-            state['has all inputs'] = True
     def lenAtFxn(portName, inport=True):
         '''
         Gets the number of components connected to a single port.
@@ -167,8 +165,6 @@ def fxn(core, inports, outports, fxn):
         logging.debug('RECV: {proc}.{port} = {data}'.format(data=str(data),
                                                             proc=core['name'],
                                                             port=inportName))
-        received.add(inportName)
-        checkInputs()
         return data
     def getDataFxn(inportName, block=True):
         '''
@@ -186,7 +182,6 @@ def fxn(core, inports, outports, fxn):
         Returns:
             The data sitting on the given in-port name.
         '''
-        logging.info('{count} connections.'.format(count=len(inports[inportName])))
         connCount = len(inports[inportName])
         if connCount > 1:
             logging.info('In-port {proc}.{port} has {count} connections, but only one requested.'.format(proc=core['name'],
@@ -241,8 +236,24 @@ def fxn(core, inports, outports, fxn):
     core['setData']   = setDataFxn
     core['getConfig'] = getConfigFxn
     core['lenAt']     = lenAtFxn
-    # Component may have no in-ports so check may succeed
-    checkInputs()
+    
+    # Collect all in-port connections
+    inportConns = []
+    for inportName in inports.keys():
+        for conn in inports[inportName]:
+            inportConns.append(conn)
+    # Wait for data to arrive at...
+    if wait:
+        # ...*all* in-ports
+        while not all([conn.poll() for conn in inportConns]):
+            continue
+    else:
+        # ...*any* single in-port connection
+        while not any([conn.poll() for conn in inportConns]):
+                continue
+    # Notify listeners that this process is ready to execute
+    internalEvent(core, 'ReceivedAllInputs')
+
     # Run the component logic
     fxn(core)
     # A process "closes" when all its inputs close
