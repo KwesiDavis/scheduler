@@ -1,5 +1,5 @@
 import scheduler.util.editor
-import unittest, inspect, os
+import unittest, sys
 
 class TestProcess(unittest.TestCase):
     def setUp(self):
@@ -20,10 +20,8 @@ class TestProcess(unittest.TestCase):
     
 class TestAllArgs(TestProcess):
     def runTest(self):
-        testFilename = inspect.getsourcefile(scheduler)
-        #currDir      = os.path.dirname(testFilename)
-        currDir      = '/home/kwesi/Desktop/git_projs/scheduler/scheduler/'
-        testDir      = currDir+'/../graphs/test'
+        currDir      = sys.prefix
+        testDir      = currDir+'/graphs/test'
         
         graphFxns = { 'garbage'        : lambda : None,
                       'empty'          : lambda : {},
@@ -49,8 +47,6 @@ class TestAllArgs(TestProcess):
                     for metadataFxnKey, metadataFxn in metadataFxns.items():
                         for configFxnKey, configFxn in metadataFxns.items():
                             graph    = graphFxn()
-                            metadata = metadataFxn()
-                            config   = configFxn()
                             fxn      = scheduler.util.editor.process
                             args     = (graph, processName, componentName)
                             kwargs   = {'metadata' : metadataFxn(), 'config' : configFxn()}
@@ -116,7 +112,5 @@ def suite():
     return suite
 
 if __name__ == '__main__':
-    #unittest.main()
     suite = suite()
     suite.debug()
-    #unittest.TextTestRunner(verbosity=2).run(suite)
