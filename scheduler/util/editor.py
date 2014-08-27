@@ -52,8 +52,10 @@ def connection(graph, src, tgt):
     
     Parameters:
         graph - A graph to modify. 
-        src - An information packet source of the from :(srcProcess, srcPort)
-        tgt - An information packet target of the from: (tgtProcess, tgtPort)
+        src - A process-port specification (to receive data from) of the from:
+             (srcProcess, srcPort)
+        tgt - A process-port specification (to send data to) of the from:
+             (tgtProcess, tgtPort)
     '''    
     if issubclass(type(src), basestring):
         srcProcessName, srcPortName = src, 'out'
@@ -73,7 +75,7 @@ def connection(graph, src, tgt):
 
 def modify(graph, edits):
     '''
-    Apply the given edits to the supplied graph.
+    Apply (or copy) the given edits (or data) to the supplied original graph.
     
     Parameters:
         graph - A graph to modify.
@@ -81,11 +83,81 @@ def modify(graph, edits):
     '''    
     for key in ['processes', 'inports', 'outports']:
         try:
-            graph.setdefault(key, {}).update(edits[key])
+            # Note: Don't do: graph.setdefault(key, {}).update(edits[key])
+            #       That adds the key-value pair before we know if the key
+            #       will throw an exception.
+            value = edits[key]
         except KeyError:
             pass
+        # Only add attributes to the copy that exist in the original
+        # ( or only add key-value pair if try succeeds)
+        else:
+            graph.setdefault(key, {}).update(value)
     for key in ['connections']:
         try:
-            graph.setdefault(key, []).extend(edits[key])
+            # Note: Don't do: graph.setdefault(key, []).extend(edits[key])
+            #       That adds the key-value pair before we know if the key
+            #       will throw an exception.
+            value = edits[key]
         except KeyError:
             pass
+        # Only add attributes to the copy that exist in the original
+        # ( or only add key-value pair if try succeeds)
+        else:
+            graph.setdefault(key, []).extend(value)
+        
+def newGraph():
+    '''
+    Create a new empty graph.
+    
+    Returns:
+        A dictionary representing a graph. 
+        The graph is of the form:
+          {'processes':{}, 'inports':{}, 'outports':{}, 'connections':[]}
+        
+    '''
+    return {'processes':{}, 'inports':{}, 'outports':{}, 'connections':[]}
+
+def iip(graph, data, tgt):
+    '''
+    Specify the given data value should arrive at the given target port at network startup-time.
+    
+    Parameters:
+        graph - A graph to modify. 
+        data - The to send at network startup-time
+        tgt - A process-port specification (to send data to) of the from:
+             (tgtProcess, tgtPort)
+    '''
+    if issubclass(type(tgt), basestring):
+        tgtProcessName, tgtPortName = tgt, 'in'
+    else:
+        tgtProcessName, tgtPortName = tgt
+    connection = { "data" : data, 
+                   "tgt"  : { "process" : tgtProcessName,
+                              "port"    : tgtPortName } }
+    
+    graph.setdefault( 'connections', [] ).append(connection)
+
+def export(graph, portName, tgt, isInport=True):
+    '''
+    Export a new port on the external interface of the given network.  The new
+    port will have the given port name and will pipe information packets to (or
+    from) the given internal target process-port specification.
+    
+     Parameters:
+        graph - A graph to modify.
+        portName - The name of the new port on the external interface.
+        tgt - A process-port specification (to send data to) of the from:
+             (tgtProcess, tgtPort)              
+    '''    
+    portType        = { True  : 'inports',
+                        False : 'outports' }   
+    defaultPortName = { True  : 'in',
+                        False : 'out' }
+    if issubclass(type(tgt), basestring):
+        tgtProcessName, tgtPortName = tgt, defaultPortName[isInport]
+    else:
+        tgtProcessName, tgtPortName = tgt
+    export = { portName : { "process" : tgtProcessName, 
+                            "port"    : tgtPortName } }
+    graph.setdefault( portType[isInport], {} ).update(export)
