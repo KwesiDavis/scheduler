@@ -124,10 +124,7 @@ class TestEditor(unittest.TestCase):
                             
                         graph = {}
                         scheduler.util.editor.modify(graph, edits)
-                        self.assertDictEqual(graph, edits, "{inports} {outports} {processes} {connections}".format(inports=inportInfo, 
-                                                                                                                   outports=outportInfo, 
-                                                                                                                   processes=processesInfo, 
-                                                                                                                   connections=connectionsInfo))
+                        self.assertDictEqual(graph, edits)
     
     def test_newGraph(self):
         graph = scheduler.util.editor.newGraph()
@@ -149,7 +146,6 @@ class TestEditor(unittest.TestCase):
             
     def test_export(self):
         graph    = scheduler.util.editor.newGraph()
-        targets  = ['process2', ('process2', 'in')]
         portName = 'port1'
         
         tests = [{ 'tgt'       : 'process2',
