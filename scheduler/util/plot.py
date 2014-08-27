@@ -20,20 +20,23 @@ def connectionInfo(connection):
     attr           = (('src',  srcPortName), ('tgt', tgtPortName))
     return edge, attr 
 
-def processInfo(process, networkxId=None):
+def processInfo(processItem, networkxId=None):
     '''
     Builds a convenient graph node representation from the given JSON 
     process data.
     
     Parameters:
-        process - A process loaded from a JSON graph file.
+        processItem - A dict item from a graph's 'processes' attribute
         networkxId - This node's associated index in a NetworkX graph. 
     Returns:
         A 'dict' of the form {'component':compName, 'isSubNet':bool, 'process':procName}
     '''
     # MAINT: Missing processID (unique in sub-graph), processIDPath (unique in graph), 
     #        processName (can be non-unique and is the GUI displayed name)
-    name, info = process
+    # MAINT: Matching the name 'SubNet' will not work, in the future, when developers,
+    #        can subclass the 'SubNet' class and change the name.  Need a isSubNet()
+    #        method on all components class. 
+    name, info = processItem
     attr       = { 'component' : info['component'],
                    'isSubNet'  : info['component'] == 'SubNet',
                    'process'   : name }
@@ -47,14 +50,27 @@ def processInfo(process, networkxId=None):
         attr['networkxId'] = networkxId
     return attr
 
-def exportInfo(export, exportType, root='*main*'):
+def exportInfo(exportItem, exportType, root='*main*'):
     '''
+    Builds a convenient graph "edge" representation from the given JSON 
+    export data.  Export "edges" are connected to a conceptual node (the
+    parent node or container process); which is technically not part of the 
+    network.  This "edge" simply represents a pipe that information packets
+    must travel through to enter (or exit) the network.   
+    
+    Parameters:
+        exportItem - A dict item from a graph's 'inports' (or 'outports') attribute
+        exportType - Specifies whether the exported-port is an 'inport' or an
+                     'outport'.
+        root - The name of the container process (or parent node)
+    Returns:
+        Tuple of the form (edge, edgeAttributes)
     '''
     # Collect the connection data into source and target process/port pairs.
-    externalPort, internalInfo = export
-    srcIdx,       tgtIdx       = 0, 1
-    processIdx,   portIdx      = 0, 1
-    connData = [ (root, externalPort), (internalInfo['process'], internalInfo['port']) ]
+    externalPortName, internaPortlInfo = exportItem
+    srcIdx,       tgtIdx  = 0, 1
+    processIdx,   portIdx = 0, 1
+    connData = [ (root, externalPortName), (internaPortlInfo['process'], internaPortlInfo['port']) ]
     # For out-ports, reverse how the connection data is interpreted such that
     # the root is now the target (instead of the source) of the exported 
     # interface connection.
@@ -66,7 +82,6 @@ def exportInfo(export, exportType, root='*main*'):
                        'port'    : connData[tgtIdx][portIdx] } }
     return connectionInfo(conn)
 
-#def json2networkx(jsonGraph, name='*main*', root=False):
 def json2networkx(jsonGraph, name='*main*', root=False):
     '''
     Constructs a NetworkX graph from the given JSON file.

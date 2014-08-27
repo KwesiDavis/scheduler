@@ -29,7 +29,7 @@ def add(graph):
         # configure all processes so that they block
         blockCfg = { 'blocking' : { 'ReceivedAllInputs' : True } }
         scheduler.util.editor.setConfig(graph, processName, blockCfg)
-        # send all process a Merge
+        # send the events of every process to a Merge component
         scheduler.util.editor.connection(graphEdits, (processName, 'events'), '*events*')
     scheduler.util.editor.connection(graphEdits, '*events*', '*sync*')
     scheduler.util.editor.connection(graphEdits, '*stdin*' , '*sync*')
