@@ -1,0 +1,28 @@
+{
+    "processes" : { "proc1"  : { "component" : "NoOp" },
+                    "subnet" : { "component" : "SubNet",
+                                 "metadata"  : { "config" : { "graph" : "/home/kwesi/Desktop/git_proj/Scheduler/graphs/test/subnet.json" } } },
+                    "proc2"  : { "component" : "NoOp" }
+    },
+    "inports": {}, 
+    "connections": [
+        {
+            "data" : 1,
+            "tgt"  : { "process" : "proc1",
+                       "port"    : "in" }
+        },
+        {        
+          "src" : { "process" : "proc1", 
+                    "port"    : "out" }, 
+          "tgt" : { "process" : "subnet",
+                    "port"    : "IN" }
+        },
+        {        
+          "src" : { "process" : "subnet", 
+                    "port"    : "OUT" }, 
+          "tgt" : { "process" : "proc2",
+                    "port"    : "in" }
+        }
+    ],
+    "outports": {}
+}

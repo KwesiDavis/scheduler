@@ -1,0 +1,24 @@
+{
+    "processes" : { "proc3" : { "component" : "NoOp" },
+                    "proc4" : { "component" : "NoOp" }
+    },
+    "inports": { "IN" : { "process" : "proc3", 
+                          "port"    : "in" }
+    }, 
+    "connections": [
+        {
+            "data" : 2,
+            "tgt"  : { "process" : "proc3",
+                       "port"    : "in" }
+        },
+        {        
+          "src" : { "process" : "proc3", 
+                    "port"    : "out" }, 
+          "tgt" : { "process" : "proc4",
+                    "port"    : "in" }
+        }
+    ],
+    "outports": { "OUT" : { "process" : "proc4", 
+                            "port"    : "out" }
+    }
+}

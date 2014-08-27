@@ -1,0 +1,31 @@
+{
+    "processes" : { "proc0" : { "component" : "NoOp" },
+                    "proc1" : { "component" : "_NoOp_" },
+                    "proc2" : { "component" : "NoOp" },
+                    "proc3" : { "component" : "_NoOp_" },
+                    "proc4" : { "component" : "NoOp" }
+    },
+    "inports": { "IN0" : { "process" : "proc0", 
+                           "port"    : "in" },
+                 "IN1" : { "process" : "proc1", 
+                           "port"    : "in" },
+                 "IN2" : { "process" : "proc2", 
+                           "port"    : "in" },
+                 "IN3" : { "process" : "proc3", 
+                           "port"    : "in" },
+                 "IN4" : { "process" : "proc4", 
+                           "port"    : "in" }
+    }, 
+    "connections": [],
+    "outports": { "OUT0" : { "process" : "proc0", 
+                             "port"    : "out" },
+                  "OUT1" : { "process" : "proc1", 
+                             "port"    : "out" },
+                  "OUT2" : { "process" : "proc2", 
+                             "port"    : "out" },
+                  "OUT3" : { "process" : "proc3", 
+                             "port"    : "out" },
+                  "OUT4" : { "process" : "proc4", 
+                             "port"    : "out" }
+    }
+}
