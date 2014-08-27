@@ -1,25 +1,43 @@
 import scheduler.util.editor
 import unittest, sys
 
-class TestProcess(unittest.TestCase):
-    def setUp(self):
-        self.graph = {}
-        self.processes = [('foo', 'Foo'), ('bar', 'Bar'), ('boo', 'Boo'), ('far', 'Far')]
-        self.data = {'int':7, 'str':'Hello, World!', 'tuple':(3.14, True, None)}
-    def _checkData(self, itemsOrig, items):
-        sortByKey    = lambda a,b:cmp(a[0], b[0])
-        metadataOrig = sorted( itemsOrig, cmp=sortByKey)
-        metadata     = sorted( items, cmp=sortByKey)
-        testKeys     = []
-        testValues   = []
-        for zipped in zip(metadataOrig, metadata):
-            ((keyOrig, valueOrig), (key, value)) = zipped
-            testKeys.append(keyOrig     == key)
-            testValues.append(valueOrig == value)
-        return testKeys, testValues
+class TestEditor(unittest.TestCase):
     
-class TestAllArgs(TestProcess):
-    def runTest(self):
+    def setUp(self):
+        pass
+    
+    def test_json2graph(self):
+        currDir = sys.prefix
+        testDir = currDir+'/graphs'
+        # Load a file with four nodes
+        jsonGraph = scheduler.util.editor.json2graph('{testDir}/add_tree.json'.format(testDir=testDir))
+        # Check graph content
+        self.assertIsInstance(jsonGraph, dict)
+        self.assertEqual(7, len(jsonGraph['connections']))
+        self.assertEqual(4, len(jsonGraph['processes']))
+        self.assertEqual(0, len(jsonGraph['inports']))
+        self.assertEqual(0, len(jsonGraph['outports']))
+    
+    def test_setConfig(self):
+        currDir = sys.prefix
+        testDir = currDir+'/graphs'
+        key = 'foo'
+        value = 'bar'
+        configData = {key:value}
+        processName = 'add1'
+        jsonGraph = scheduler.util.editor.json2graph('{testDir}/add_tree.json'.format(testDir=testDir))
+        scheduler.util.editor.setConfig(jsonGraph, processName, configData)
+        self.assertEqual(value, jsonGraph['processes'][processName]['metadata']['config'][key])
+    
+    def _getProcs(self, graph):
+        '''
+        returns a list of name pairs: [(processName, componentName), ...]
+        '''
+        getNamePair = lambda x:(x[0], x[1]['component'])
+        namePairs   = map(getNamePair, graph.get('processes', {}).items())
+        return namePairs 
+    
+    def test_process(self):
         currDir      = sys.prefix
         testDir      = currDir+'/graphs/test'
         
@@ -55,58 +73,106 @@ class TestAllArgs(TestProcess):
                                 exc = AttributeError
                                 self.assertRaises(exc, fxn, *args, **kwargs)
                             else:
-                                print graphFxnKey, processNameKey, componentNameKey, metadataFxnKey, configFxnKey
+                                if False:
+                                    print graphFxnKey, processNameKey, componentNameKey, metadataFxnKey, configFxnKey
                                 
-                                procsBefore = set(self.getProcs(graph))
+                                procsBefore = set(self._getProcs(graph))
                                 fxn(*args, **kwargs)
-                                procsAfter = set(self.getProcs(graph))
+                                procsAfter = set(self._getProcs(graph))
                                 
                                 procsExpectedDiff = set([(processName, componentName)])
                                 procsActualDiff   = procsAfter-procsBefore
                                 
                                 self.assertEqual(procsExpectedDiff, procsActualDiff)
-    def getProcs(self, graph):
-        '''
-        returns a list of name pairs: [(processName, componentName), ...]
-        '''
-        getNamePair = lambda x:(x[0], x[1]['component'])
-        namePairs   = map(getNamePair, graph.get('processes', {}).items())
-        return namePairs 
-                                
-class TestNoOptionalArgs(TestProcess):
-    def runTest(self):
-        # make sure the shuffled sequence does not lose any elements
-        for processName, componentName in self.processes:
-            scheduler.util.editor.process( self.graph, processName, componentName )
-
-        getCompName = lambda x:(x[0], x[1]['component'])
-        processes   = map(getCompName, self.graph['processes'].items())
-        self.assertEqual(set(processes), set(self.processes))
-
-class TestMetadataArg(TestProcess):
-    def runTest(self):
-        processName, componentName = self.processes[0]
-        scheduler.util.editor.process(self.graph, processName, componentName, metadata=self.data)
+    
+    def test_connection(self):
+        graph   = scheduler.util.editor.newGraph()
+        sources = ['process1', ('process1', 'out')]
+        targets = ['process2', ('process2', 'in')]
+        for src in sources:
+            for tgt in targets:
+                scheduler.util.editor.connection(graph, src, tgt)
+                connection = graph['connections'][0]
+                self.assertEqual('process1', connection['src']['process'])
+                self.assertEqual('out',      connection['src']['port'])
+                self.assertEqual('process2', connection['tgt']['process'])
+                self.assertEqual('in',       connection['tgt']['port'])
+    
+    def test_modify(self):
+        inportInfos      = [('inports'    ,{}), None]
+        outportInfos     = [('outports'   ,{}), None]
+        processesInfos   = [('processes'  ,{}), None]
+        connectionsInfos = [('connections',[]), None]
+        graph = {}
+        for inportInfo in inportInfos:
+            for outportInfo in outportInfos:
+                for processesInfo in processesInfos:
+                    for connectionsInfo in connectionsInfos:
+                        edits = {}
+                        if inportInfo:
+                            inportKey, inportValue = inportInfo
+                            edits.setdefault(inportKey, inportValue)
+                        if outportInfo:
+                            outportKey, outportValue = outportInfo
+                            edits.setdefault(outportKey, outportValue)            
+                        if processesInfo:
+                            processesportKey, processesValue = processesInfo
+                            edits.setdefault(processesportKey, processesValue)
+                        if connectionsInfo:
+                            connectionsKey, connectionsValue = connectionsInfo
+                            edits.setdefault(connectionsKey, connectionsValue)            
+                            
+                        graph = {}
+                        scheduler.util.editor.modify(graph, edits)
+                        self.assertDictEqual(graph, edits, "{inports} {outports} {processes} {connections}".format(inports=inportInfo, 
+                                                                                                                   outports=outportInfo, 
+                                                                                                                   processes=processesInfo, 
+                                                                                                                   connections=connectionsInfo))
+    
+    def test_newGraph(self):
+        graph = scheduler.util.editor.newGraph()
+        self.assertEqual(graph['processes']  , {})
+        self.assertEqual(graph['connections'], [])
+        self.assertEqual(graph['inports']    , {})
+        self.assertEqual(graph['outports']   , {})
+    
+    def test_iip(self):
+        graph   = scheduler.util.editor.newGraph()
+        targets = ['process2', ('process2', 'in')]
+        data    = 'foo'
+        for tgt in targets:
+            scheduler.util.editor.iip(graph, data, tgt)
+            connection = graph['connections'][0]
+            self.assertEqual(data,       connection['data'])
+            self.assertEqual('process2', connection['tgt']['process'])
+            self.assertEqual('in',       connection['tgt']['port'])
+            
+    def test_export(self):
+        graph    = scheduler.util.editor.newGraph()
+        targets  = ['process2', ('process2', 'in')]
+        portName = 'port1'
         
-        itemsOrig = self.data.items()
-        items     = self.graph['processes'][processName]['metadata'].items()
-        testKeys, testValues = self._checkData(itemsOrig, items)
-        
-        self.assertTrue(all(testKeys))
-        self.assertTrue(all(testValues))        
-
-class TestConfigArg(TestProcess):
-    def runTest(self):
-        processName, componentName = self.processes[0]
-        scheduler.util.editor.process(self.graph, processName, componentName, config=self.data)
-        
-        itemsOrig = self.data.items()
-        items     = self.graph['processes'][processName]['metadata']['config'].items()
-        testKeys, testValues = self._checkData(itemsOrig, items)
-        
-        self.assertTrue(all(testKeys))
-        self.assertTrue(all(testValues))
-        
+        tests = [{ 'tgt'       : 'process2',
+                   'portName'  : 'port1',
+                   'is inport' : True },
+                 { 'tgt'       : ('process2', 'out'),
+                   'portName'  : 'port2',
+                   'is inport' : False }]
+        portType = { True  : 'inports',
+                     False : 'outports' }
+        defaultPortName = { True  : 'in',
+                            False : 'out' }        
+        for test in tests:
+            graph    = scheduler.util.editor.newGraph()
+            portName = test['portName']
+            tgt      = test['tgt']
+            isInport = test['is inport']
+            scheduler.util.editor.export(graph, portName, tgt, isInport)
+            
+            self.assertEqual(graph[portType[isInport]][portName]['process'], 'process2')
+            self.assertEqual(graph[portType[isInport]][portName]['port'],    defaultPortName[isInport])
+            
+    
 def suite():
     suite = unittest.TestLoader().loadTestsFromName('scheduler.util.test.test_editor')
     return suite
