@@ -68,7 +68,7 @@ def start(workers, leak, processName):
           parent thread.  Thus, any Thread that starts, will close all 
           connections (in the main parent thread) used by all Processes.  So,
           any Process that starts, after any Thread, will inherit closed 
-          connections that it expects to be open for use.  This is bad.
+          connections that it expects to be open for use.  This would be bad.
           
     Parameters:
         workers - A list of workers (Process or Thread objects)
@@ -78,8 +78,11 @@ def start(workers, leak, processName):
                       its network sub-processes. 
     '''
     for worker in sorted(workers, cmp=compareWorkers):
-        worker.start()
+        worker.start() # fork new process (or thread)
     # Closed un-used file descriptors held by the given process.
+    # Note: start() gets called by thread that creates the network (or the main
+    #       thread) so it must also close its connections after all processes
+    #       have started due to inheriting behavior of the a forked process. 
     closeByProcess(leak, processName)
 
 def connectionInfo(conn, process, port, parent=None):
@@ -151,6 +154,10 @@ def getLeakByProcess(leak, processName):
     '''
     Create an object that knows about all of the leaked Pipe connections
     associated with a given process.
+    Note: The subnet (or parent) knows about all leaked connections in the 
+          network that it resides. This method is used, by subnets, to 
+          determine which connections, from the parent's network, are leaked
+          into the child processes it spawns.
     
     Parameters:
         leak - A list of all connections (or file descriptors) in-use by the 
@@ -160,10 +167,12 @@ def getLeakByProcess(leak, processName):
         A dictionary representing A list of all connections (and associated 
         metadata) in-use by a network of processes. one end of a Pipe. 
     '''    
-    # MAINT: This will fail for threaded subnets so we should pass all process name aliases
-    ins     = [ connInfo for connInfo in leak['connections']['inports']  if connInfo['process'] == processName]
-    outs    = [ connInfo for connInfo in leak['connections']['outports'] if connInfo['process'] == processName]
-    threads = set([processName])
+    aliases = [ processName ]
+    if processName in leak['threads']:
+        aliases = list(leak['threads'])
+    ins     = [ connInfo for connInfo in leak['connections']['inports']  if connInfo['process'] in aliases]
+    outs    = [ connInfo for connInfo in leak['connections']['outports'] if connInfo['process'] in aliases]
+    threads = set(aliases)
     return newLeak(inports=ins, outports=outs, threads=threads)
 
 def append(leak, parentProcessName, connection, processName, portName, isThread, inport=True):
