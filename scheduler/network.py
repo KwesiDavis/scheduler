@@ -203,16 +203,18 @@ def stop(network):
     '''
     # Since no more data will be coming into the graph, close the most upstream
     # connections of the graph.
-    closePortsByType(network, True)
+    isInport = True # close in-ports
+    closePortsByType(network, isInport=isInport)
     # Wait for all processes to terminate themselves.
     for process in network['processes']:
         process.join()
     # Since all network processes have terminated (or joined), no more data will
     # be coming out of the graph.  We can close the most downstream connections 
     # of the graph.
-    closePortsByType(network, False)
+    isInport = False # close out-ports
+    closePortsByType(network, isInport=isInport)
         
-def closePortsByType(network, inports):
+def closePortsByType(network, isInport=True):
     '''
     Close all in-port (or out-port)connections on this network's exported
     interface.
@@ -229,7 +231,7 @@ def closePortsByType(network, inports):
     '''
     bool2type = { True  : 'inports',
                   False : 'outports' }
-    for inportName, conns in network['interface'][bool2type[inports]].items():
+    for inportName, conns in network['interface'][bool2type[isInport]].items():
         for i, conn in enumerate(conns):
             if not conn.closed:
                 logging.debug('CONN: [{pid}] Process "{proc}" closed "{proc}.{port} [{index}]".'.format(pid=os.getpid(), proc=network['name'], port=inportName, index=i))        
