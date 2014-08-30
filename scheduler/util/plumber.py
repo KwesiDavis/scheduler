@@ -146,9 +146,12 @@ def newLeak(inports=[], outports=[], threads=set([])):
         A dictionary representing A list of all connections (and associated 
         metadata) in-use by a network of processes. one end of a Pipe. 
     '''
-    return { 'connections' : { 'inports'  : inports,
-                               'outports' : outports },
-             'threads'     : threads }
+    # the default value is only created once so return copies of the 
+    # incoming mutable objects  
+    retval = { 'connections' : { 'inports'  : list(inports),
+                                 'outports' : list(outports) },
+               'threads'     : set(threads) } 
+    return retval 
 
 def getLeakByProcess(leak, processName):
     '''
