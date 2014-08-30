@@ -15,10 +15,14 @@ def add(core, inports, outports):
         sum - A connection to send the result of a+b. 
     '''    
     def fxn(core):
-        a      = core['getData']('a')
-        b      = core['getData']('b')
-        result = a+b
-        core['setData']('sum', result)    
+        try:
+            a = core['getData']('a')
+            b = core['getData']('b')
+        except EOFError:
+            pass
+        else:
+            result = a+b
+            core['setData']('sum', result)    
     scheduler.component.base.fxn(core, inports, outports, fxn)
 
 def stdin(core, inports, outports):
@@ -85,8 +89,12 @@ def noop(core, inports, outports):
               to this out-port.
     '''
     def fxn(core):
-        data = core['getData']('in')
-        core['setData']('out', data)
+        try:
+            data = core['getData']('in')
+        except EOFError:
+            pass
+        else:
+            core['setData']('out', data)
     scheduler.component.base.fxn(core, inports, outports, fxn)
 
 def info(core, inports, outports):
