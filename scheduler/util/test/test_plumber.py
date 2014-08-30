@@ -104,7 +104,8 @@ class TestPlumber(unittest.TestCase):
         for i in range(5):
             network['interface']['inports']['IN{num}'.format(num=i)][0].send(i) 
         # Run the network
-        scheduler.network.start(network)
+        #scheduler.network.start(network)
+        scheduler.util.plumber.start(network['processes'], network['leak'], network['name'])
         # Check the network results
         for i in range(5):
             data = network['interface']['outports']['OUT{num}'.format(num=i)][0].recv()
