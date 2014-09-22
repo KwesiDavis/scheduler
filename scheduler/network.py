@@ -9,7 +9,7 @@ def connectionIter(graph, iips=True):
     '''
     Iterate over both IIP and regular connections in the given graph and always
     yield a source, target and data field.  For IIPs, the source is a non-existent
-    process called '_ipps_' and the port is an integer (representing the IIP's
+    process called '_iips_' and the port is an integer (representing the IIP's
     order-of-appearance, in the given graph's connection list).  For regular
     connections, the data is None.
     
@@ -60,8 +60,7 @@ def exportIter(graph, parentProcessName):
         * srcInfo  == (srcProcessName, srcPortName)
         * tgtInfo  == (tgtProcessName, tgtPortName)
         * dataInfo == (isDataUsed,     data)
-        Note: The data can be 'None' so 'isDataUsed' determines whether the 
-              data should be stuffed into the pipe as an IIP.
+        Note: The 'data' value is always 'None'.
     '''    # Define top-level interface
     for exportType in ['inports', 'outports']:
         for exportItem in graph[exportType].items():
@@ -82,7 +81,7 @@ def exportIter(graph, parentProcessName):
             dataInfo = (False, None)   
             yield srcInfo, tgtInfo, dataInfo
 
-def new(graph, parentProcessName='root', iips=True, leak=scheduler.util.plumber.newLeak()):
+def new(graph, parentProcessName='root', iips=True, leak=None):
     '''
     Given a graph and a component library generate a sub-network of Python
     multiprocessing Process objects wired to together with Pipe objects.
@@ -108,7 +107,11 @@ def new(graph, parentProcessName='root', iips=True, leak=scheduler.util.plumber.
             'interface' : exportedInterface,
             'leak'      : leakedFileDescriptors }
     '''
-    logging.debug("NET : %s" % parentProcessName )    
+    logging.debug("NET : %s" % parentProcessName )
+    # Not using default kwarg for 'leak'. Only *one* object will be created
+    # and Python will try to share it with other calls of this function.
+    if None == leak:
+        leak = scheduler.util.plumber.newLeak()        
     # Connections associated with this network's exported ports will 
     # reference this entire network, by name, (as if it were an elementary 
     # process). We add the main thread name here to prevent the main thread
