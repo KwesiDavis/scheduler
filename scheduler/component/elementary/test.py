@@ -22,7 +22,10 @@ def add(core, inports, outports):
             pass
         else:
             result = a+b
-            core['setData']('sum', result)    
+            try:
+                core['setData']('sum', result)
+            except IOError:
+                pass # downstream connection is closed
     scheduler.component.base.fxn(core, inports, outports, fxn)
 
 def stdin(core, inports, outports):
@@ -48,7 +51,10 @@ def stdin(core, inports, outports):
                 # out-port.
                 line = sys.stdin.readline()
                 if line:
-                    core['setData']('out', line.replace('\n',''))
+                    try:
+                        core['setData']('out', line.replace('\n',''))
+                    except IOError:
+                        break # downstream connection is closed
                 # The user hit 'Ctrl-D'; which means end-of-file.
                 else:
                     break
@@ -92,9 +98,12 @@ def noop(core, inports, outports):
         try:
             data = core['getData']('in')
         except EOFError:
-            pass
+            pass # upstream data source stopped
         else:
-            core['setData']('out', data)
+            try:
+                core['setData']('out', data)
+            except IOError:
+                pass # downstream connection is closed
     scheduler.component.base.fxn(core, inports, outports, fxn)
 
 def info(core, inports, outports):
@@ -110,10 +119,15 @@ def info(core, inports, outports):
     '''
     def fxn(core):
         while True:
-            try: data = core['getData']('in')
-            except EOFError: break             
+            try: 
+                data = core['getData']('in')
+            except EOFError: 
+                break # upstream data source stopped         
             logging.info(str(data))
-            core['setData']('out', data)
+            try:
+                core['setData']('out', data)
+            except IOError:
+                break # downstream connection is closed
     scheduler.component.base.fxn(core, inports, outports, fxn)
     
 def merge(core, inports, outports):
@@ -137,14 +151,17 @@ def merge(core, inports, outports):
                 if not eof[connIndx]:
                     try:
                         data = core['getDataAt'](connIndx, 'in', block=False)
-                    except IOError:                        
+                    except ValueError:                        
                         # no data on in-port
                         continue
                     except EOFError:
                         # no more data is coming                        
                         eof[connIndx] = True
                         continue
-                    core['setData']('out', data)
+                    try:
+                        core['setData']('out', data)
+                    except IOError:
+                        break # downstream connection is closed
             if all(eof):
                 # All upstream connections are closed so stop polling 
                 # for data
@@ -179,7 +196,10 @@ def join(core, inports, outports):
                     isEndOfFile = True
                     break
             if not isEndOfFile:
-                core['setData']('out', tuple(group))
+                try:
+                    core['setData']('out', tuple(group))
+                except IOError:
+                    break # downstream connection is closed
     scheduler.component.base.fxn(core, inports, outports, fxn)
 
 def unblock(core, inports, outports):
@@ -247,6 +267,7 @@ def subnet(core, inports, outports):
         outs = 'internalOutports'
         eof  = {ins  : {}.fromkeys(interface['inports'].keys(),  False),
                 outs : {}.fromkeys(interface['outports'].keys(), False)}
+        ioError = {outs : {}.fromkeys(interface['outports'].keys(), False)}
         # Forward external data to the internal sub-net and forward internal
         # results to the external out-ports.
         while True:
@@ -263,7 +284,7 @@ def subnet(core, inports, outports):
                     conn = interface['inports'][inportName][FIRST_CONN]
                     try:
                         data = core['getData'](inportName, block=False)
-                    except IOError:
+                    except ValueError:
                         # no data on in-port
                         continue
                     except EOFError:
@@ -312,10 +333,16 @@ def subnet(core, inports, outports):
                                                                                                                 port=outportName, 
                                                                                                                 index=FIRST_CONN))        
                         conn.close()
-                        continue                
-                # Forward the data, that arrived on the internal out-port,
-                # to the corresponding external out-port.
-                core['setData'](outportName, data)
+                        continue
+                if not ioError[outs][outportName]:         
+                    # Forward the data, that arrived on the internal out-port,
+                    # to the corresponding external out-port.
+                    try:
+                        core['setData'](outportName, data)
+                    except IOError:
+                        ioError[outs][outportName] = True
+                        if all(ioError[outs].values()):
+                            break # *all* out-ports, on the external interface, are closed
             if all(eof[ins].values()) and all(eof[outs].values()) :
                 # All not data is traveling into or out of the sub-net, shut 
                 # it down.

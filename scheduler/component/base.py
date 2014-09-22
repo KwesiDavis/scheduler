@@ -146,7 +146,7 @@ def fxn(core, inports, outports, fxn, wait=True):
             associated with the given connection index.
             
         Exceptions:
-            Throws an 'IOError' when blocking is disabled and there is no data
+            Throws an 'ValueError' when blocking is disabled and there is no data
             available on the given in-port name, from the connection associated
             with the given connection index.
         '''
@@ -157,10 +157,12 @@ def fxn(core, inports, outports, fxn, wait=True):
             logging.info('Data requested from an unconnected port: {proc}.{port}'.format(proc=core['name'],
                                                                                          port=inportName))
             raise e
+        # Don't waste time waiting for recv() to return with data. Throw an 
+        # error if there is nothing available, yet...
         if not block:
             if not conn.poll():
-                raise IOError('In-port {proc}.{port} not ready for recv()'.format(proc=core['name'],
-                                                                                  port=inportName))
+                raise ValueError('In-port {proc}.{port} not ready for recv()'.format(proc=core['name'],
+                                                                                     port=inportName))
         data = conn.recv()
         logging.debug('RECV: {proc}.{port} = {data}'.format(data=str(data),
                                                             proc=core['name'],
@@ -256,20 +258,6 @@ def fxn(core, inports, outports, fxn, wait=True):
 
     # Run the component logic
     fxn(core)
-    # A process "closes" when all its inputs close
-    isAllInputsClosed = False
-    logging.debug('WAIT: Waiting on {name}\'s in-ports {inports} to close...'.format(name=core['name'], inports=inports.keys()))
-    while not isAllInputsClosed:
-        status = []
-        for portName, inConnList in inports.items():
-            for i in range(len(inConnList)):
-                try:
-                    core['getDataAt'](i, portName)
-                    status.append(False)
-                except EOFError:
-                    status.append(True)
-        isAllInputsClosed = all(status)
-    logging.debug('WAIT: Done waiting! Process {name} is shutting down.'.format(name=core['name']))
     # Close all connections
     for ports in [inports, outports, core.get('ports', {})]:
         for portName, connList in ports.items():
