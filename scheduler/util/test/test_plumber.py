@@ -96,7 +96,7 @@ class TestPlumber(unittest.TestCase):
     def test_start(self):
         currDir = sys.prefix
         testDir = currDir+'/graphs'
-        # Load a file with three nodes
+        # Load a file with five nodes
         graph = scheduler.util.editor.json2graph('{testDir}/test/fiveParallelProcessesWithInterface.json'.format(testDir=testDir))
         # Build a network from the graph
         network = scheduler.network.new(graph)

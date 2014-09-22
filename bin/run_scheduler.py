@@ -26,8 +26,7 @@ def parseArgs():
 
 def setupLogging(levelStr, filename):
     '''
-    Given a graph and a component library generate a sub-network of Python
-    multiprocessing Process objects wired to together with Pipe objects.
+    Sets up the logger for debugging.
     
     Parameters:
         levelStr - An alias referring to a logging level ('INFO', 'info', 
